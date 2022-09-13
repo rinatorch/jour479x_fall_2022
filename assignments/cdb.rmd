@@ -1,0 +1,19 @@
+---
+title: "cfb"
+output: html_document
+date: "2022-09-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(cfbfastR)usethis::edit_r_environ()
+```
+
+```{r}
+
+```
+
