@@ -99,4 +99,25 @@ matches_2022 %>%
 
 
 ```
+```{r}
+correlations <- read_csv("https://raw.githubusercontent.com/dwillis/NCAAWomensSoccerData/main/data/ncaa_womens_soccer_matchstats_2022.csv")
+
+newcorrelations <- correlations %>%
+  mutate(
+    differential = goals - defensive_goals
+  )
+
+```
+```{r}
+newcorrelations %>% summarise(correlation = cor(differential, fouls, method="pearson"))
+```
+
+```{r}
+newcorrelations %>% 
+  summarise(correlation = cor(differential, yellow_cards, method="pearson"))
+```
+```{r}
+fit <- lm(differential ~ fouls, data = newcorrelations)
+summary(fit)
+```
 

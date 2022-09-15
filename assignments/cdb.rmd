@@ -10,10 +10,32 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
-library(cfbfastR)usethis::edit_r_environ()
+library(cfbfastR)
+library(tictoc)
 ```
 
 ```{r}
+tictoc::tic()
+pbp <- data.frame()
+seasons <- 2014:cfbfastR:::most_recent_cfb_season()
+progressr::with_progress({
 
+  pbp <- cfbfastR::load_cfb_pbp(seasons)
+})
+tictoc::toc()
+```
+
+```{r}
+glimpse(pbp)
+
+```
+```{r}
+#which team has had the most penalties on the first play of a series
+pbp %>%
+  filter(new_series == 1, drive_play_number ==1, play_type =='Penalty',down ==1)%>%
+  group_by(pos_team)%>%
+  summarize(plays = n())%>%
+  arrange(desc(plays))
+  
 ```
 
