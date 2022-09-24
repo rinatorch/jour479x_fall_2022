@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tidyverse)
 library(dplyr)
+library(Hmisc)
 
 ```
 
@@ -109,3 +110,9 @@ summary(fit2)
 
 ```
 Explanation of simple vs. multiple regression models: The multiple regression model is better than the simple regression model when looking at close games, or games when the victor is determined by 5 points or less. The simple regression model is not statistically significant, as seen by the p-value greater than 0.5. The p-value for the multiple regression model is statistically significant, but the r-squared value tells us that the selected elements are no longer strong predictors of the differential. When looking at all of the games at all degrees of closeness, the multiple regression model was way stronger than it is when looking at only close games. These findings could suggest that games that are closer aren't won in turnovers, rushing or passing more than the opponent. 
+
+#At the end of all that code, summarize what you've learned about the relationship between penalties and point differential and whether you think there's a story there or whether it's useful in adding context within a larger story. Would you use this in journalism and, if so, how?
+
+Penalties are not a strong predictor of point differential. From the first model created in this assignment, it was clear that penalties aren't prediction point differentials. I don't think there's a story on this. When I combined a ton of other variables, including turnover margin, passing margin and rushing margin, I was able to create a regression that is a solid predictor of the point differential. This model has a solid R-squared when looking at all of the games, but it falters when we look at only close games, which I defined as games won or lost by 5 points. I initially thought the model was pretty strong, but it was interesting to see it struggle so much in the filtered data. Teams that are closer are not won by having more turnovers, and more passing and rushing than the opponent.
+
+Still, I think the multiple regression model could be a valuable way  to predict game outcomes as the data in a given game unfolds. It could be applied to something like the ESPN percentage chance of winning, which changes based on stats as the game goes on. I could imagine seeing the rise in turnovers, passing and rushing making it more likely that one team would win. At the same time, I think it's important to recognize that this model just isn't too surprising, which is why it might be hard to pull a story out of it. It seems kind of intuitive that teams that out-rush and out-pass their opponents would also win by more points. The turnover margin might be something to investigate more on its own down the line, though. A wide turnover margin makes it seem like one team is just outplaying the other physically. There's definitely more research to be done there, and maybe a jumping off point for a story down the line.
