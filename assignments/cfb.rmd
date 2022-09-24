@@ -1,0 +1,111 @@
+---
+title: "cfb"
+output: html_document
+date: "2022-09-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load tidyverse
+```{r}
+library(tidyverse)
+library(dplyr)
+
+```
+
+#Load college football game data from http://mattwaite.github.io/sportsdatafiles/footballlogs1121.csv (Links to an external site.) into a variable called `logs` and examine it so that you understand the column names.
+
+```{r}
+logs <- read_csv("http://mattwaite.github.io/sportsdatafiles/footballlogs1121.csv")
+
+head(logs)
+```
+#Create a new column for point differential between the TeamScore and OpponentScore using mutate. You can use the same `logs` variable.
+```{r}
+logs <- mutate(logs, differential = TeamScore - OpponentScore)
+ 
+```
+
+#Create a regression (a linear model, like we did in this chapter (Links to an external site.)) investigating whether the number of penalties can predict the score differential.
+
+```{r}
+fit <- lm(differential ~ Penalties, data = logs)
+summary(fit)
+
+```
+# In a paragraph below this code block, describe the results: what is the p-value, and does it mean the results are random? Using the r-squared value, how much of the differential can be explained by penalties? How useful is this regression?
+
+The p-value is below 0.5, which tells us that the relationship is statistically significant. The R-squared value is quite close to zero, which tells us that penalties aren't a good predictor for team penalties.
+
+```{r}
+#Here's an extra model on penalty yards
+
+fit <- lm(differential ~ PenaltyYds, data = logs)
+summary(fit)
+
+```
+Explanation: The p-value is less than 0.5, so this relationship is statistically significant. The R-squared value is very close to zero, so we can tell that penalty yards are not a good predictor for differential either.
+
+
+#Next, create a multiple regression model following the examples in this chapter (Links to an external site.). Instead of using the number of penalties alone, combine other numeric columns that describe mistakes/bad outcomes to try and predict the score differential with a higher degree of confidence. Look at the same values in the results you did before, but also take into account the residual standard error and the risk of multicollinearity - are you adding columns that explain each other instead of the differential? Below this code block, explain your choices and what you think the results say.
+```{r}
+
+#Create new variables
+logs <- mutate(logs, TurnoverMargin = TotalTurnovers - DefTotalTurnovers)
+logs <- mutate(logs, FumbleMargin = Fumbles - DefFumbles)
+logs <- mutate(logs, RushingMargin = RushingYds - DefRushingYds)
+logs <- mutate(logs, PassingMargin = PassingYds - DefPassingYds)
+logs <- mutate(logs, FDRushMargin = FirstDownRush - DefFirstDownRush)
+
+#Create model
+model1 <- lm(differential ~ TurnoverMargin + RushingMargin + PassingMargin, data=logs)
+summary(model1)
+```
+```{r}
+
+#Check for multicollinearity
+
+simplelogs <- logs %>% select_if(is.numeric) %>% select(-Game) %>% select(differential, TurnoverMargin, RushingMargin, PassingMargin)
+
+cormatrix <- rcorr(as.matrix(simplelogs))
+
+cormatrix$r
+
+```
+Explanation: The p-value is less than 0.5, which tells us that we're looking at something statistically significant. The R-squared value, which isn't too far from one, tells us that turnover margin, rushing margin and passing margin make a solid predictor for winning. In other words, if a team is passing more than the opponent, getting more turnovers than the opponent and rushing more than the opponent, then there's a pretty good chance that team is also going to win. If we're seeking a model that specifically predicts the differential based on bad outcomes/mistakes, than this is not the best for that. This model explicitly puts things together that one might would assume would help a team win a game. 
+
+#Finally, use filter to narrow the game data so that you're only working with games that are close (you'll need to define what "close" means). Are your simple or multiple regression models better? Worse? Below this code block, explain your choices and what you think the results say.
+
+```{r}
+#Scratch code for ideas on calculating closeness
+min(logs$differential)
+median(logs$differential)
+(max(logs$differential) - min(logs$differential))/4
+min(logs$differential) + 40.5
+mean(logs$differential)
+```
+
+
+```{r}
+#Define close games as those were won or lost by a margin between -5 and 5
+closeGames <- filter(logs, differential %in% -5:5)
+
+```
+
+```{r}
+#Multiple regression model
+model2 <- lm(differential ~ TurnoverMargin + RushingMargin + PassingMargin, data=closeGames)
+summary(model2)
+```
+
+
+```{r}
+#Simple regression model
+fit2 <- lm(differential ~ Penalties, data = closeGames)
+summary(fit2)
+
+
+```
+Explanation of simple vs. multiple regression models: The multiple regression model is better than the simple regression model when looking at close games, or games when the victor is determined by 5 points or less. The simple regression model is not statistically significant, as seen by the p-value greater than 0.5. The p-value for the multiple regression model is statistically significant, but the r-squared value tells us that the selected elements are no longer strong predictors of the differential. When looking at all of the games at all degrees of closeness, the multiple regression model was way stronger than it is when looking at only close games. These findings could suggest that games that are closer aren't won in turnovers, rushing or passing more than the opponent. 
