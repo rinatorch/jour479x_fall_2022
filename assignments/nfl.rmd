@@ -1,0 +1,35 @@
+---
+title: "Untitled"
+output: html_document
+date: "2022-09-28"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(nflfastR)
+library(tidyverse)
+library(dplyr)
+
+```
+```{r}
+data <- readRDS("play_by_play_2022.rds")
+```
+
+
+```{r}
+data %>%
+  filter(posteam == 'WAS', play_type == 'pass', game_half == "Half1", str_detect(desc, "McLaurin"))
+
+```
+
+```{r}
+data %>% 
+  filter(grepl('McLaurin', data$desc))%>% 
+  filter('Half1' %in% data$game_half)%>%
+  filter('pass' == data$play_type)
+
+```
+
