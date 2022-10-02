@@ -1,0 +1,85 @@
+---
+title: "vb"
+output: html_document
+date: "2022-09-30"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+```{r}
+matches <- read_csv("https://raw.githubusercontent.com/dwillis/NCAAWomensVolleyballData/main/data/ncaa_womens_volleyball_matchstats_2022.csv")
+matches$year <- as.numeric(format(matches$date, "%Y"))
+
+
+matches
+```
+
+After that, set up a code block to create team averages and z-scores the way the tutorial did, but you must change the metrics you use to calculate the scores (I asked you about this in the quiz). You may remove or add metrics, but you have to add at least one, and calculate a composite z-score. 
+
+```{r}
+#To get data at the team level, I summed the values I will need to calculate team totals later.
+team_totals <-
+matches %>%
+  group_by(team) %>%
+  summarise(
+    sum_kills = sum(kills),
+    sum_aces = sum(aces),
+    sum_assists = sum(assists),
+    sum_digs = sum(digs),
+    sum_sets = sum(s)
+  )
+```
+
+```{r}
+#I'm calculating metrics per set.
+
+perset <- team_totals %>% 
+  mutate(
+    killsperset = sum_kills/sum_sets,
+    digsperset = sum_digs/sum_sets,
+    assistsperset = sum_assists/sum_sets,
+    acesperset = sum_aces/sum_sets
+  ) %>%
+  select(team, killsperset, digsperset, assistsperset, acesperset)
+```
+
+```{r}
+#I'm calculating Z-scores for each metric, as well as a composite metric. I chose to expand the prior model by including assists in the mix. 
+teamzscore <- perset %>%
+  mutate(
+    killszscore = as.numeric(scale(killsperset, center = TRUE, scale = TRUE)),
+    assistszscore = as.numeric(scale(assistsperset, center = TRUE, scale = TRUE)),
+    digszscore = as.numeric(scale(digsperset, center = TRUE, scale = TRUE)),
+    aceszscore = as.numeric(scale(acesperset, center = TRUE, scale = TRUE)),
+    TotalZscore = killszscore + assistszscore + digszscore + acesperset
+  )
+```
+
+```{r}
+head(teamzscore)
+
+```
+
+```{r}
+#When you do this, who are the highest-performing teams in the NCAA? 
+teamzscore  %>%  arrange(desc(TotalZscore))
+
+
+#The Princeton Tigers are the top performing team in the NCAA per this model. The Creighton Bluejays, Tulsa Golden Hurricane, Arkansas Razorbacks and SFA Ladyjacks are also in the top five per this model. The latest records I saw showed Princeton and Creighton both with solid records. These aren't the teams I expected, but they seem to be good teams, if we're judging by their records.Tulsa, not so much, though (9-6). But performance might not only be about records. I'm also a little skeptical of this model. The SFA Ladyjacks are not often top of mind when we think of best volleyball teams in the NCAA -- but maybe we're needlessly overlooking  them? 
+```
+
+```{r}
+#Where does Maryland rank on the Z-score scale and what teams are similar to it? 
+
+#Maryland ranked down low at 298th with a negative total Zscore.
+
+#Temple Owls, Harvard Crimson, LMU (CA) Lions, Radford Highlanders, Evansville Purple Aces are all ranked with slightly better Z-score than Maryland. Wyoming Cowgirls, Bradley Braves, Little Rock Trojans, Gardner-Webb Runnin' Bulldogs and Cleveland St. Vikings all rank slightly below Maryland. I found this by looking at the teamzscore dataframe, identifying Maryland's location and those ranked above and below Maryland when sorting by highest to lowest total Z-scores.
+```
+
