@@ -1,0 +1,111 @@
+---
+title: "background"
+output: html_document
+date: "2022-10-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Working Question: How has the gap between men's and women's sports changed at UMD over the years?
+This question is multifaceted. Through equity reports, I plan to explore the following elements over the past ten years:
+--> The difference in revenue for men's and women's sports
+--> The difference in total expenses (including game-day expenses) for men's and women's sports
+--> The difference in expenses for recruiting in men's and women's sports
+--> Bonus: attendance data, would require a PIA request
+
+#About the data
+The data comes from the Equity in Athletics Data Analysis report, which is filed by co-ed postsecondary institutions that receive Title IV funding and have an intercollegiate athletics program. The U.S. Department of Education's Office of Postsecondary Education has a data tool that allows users to download elements of the report. The data tool includes data on the University of Maryland from 2003 to 2020. I also identified a document from the University System of Maryland that includes data published in 2022 for the EADA report. Also of note, the data tool seems to make comparing institutions simple. It could be interesting to compare data across the Big 10 over the past decade.
+
+--> Here is the data tool: https://ope.ed.gov/athletics/#/institution/details 
+--> Here is the USM data: https://www.usmd.edu/regents/agendas/20220613-ICA-PublicSession.pdf 
+
+#Cleaning and preparing the data
+The data that I've identified will likely need to be combined into one dataframe. I could run the USM data through Tabula (though I expect it to messy) and add it to the data extracted from the data tool. It appears the historical part of the data tool can extract data from 2003 to 2020, but another part includes data from 2021, and the USM data includes data from 2022. I'll need to seek some clarity here and adjust and arrange the data accordingly.
+
+#A look at some of the data extracted from the data tool.
+```{r}
+
+#load tidyverse
+library(tidyverse)
+
+#read in datasets
+expenses <- read_csv('expenses.csv')
+op_expenses <- read_csv('operating_expenses.csv')
+recruiting <- read_csv('recruiting_expenses.csv')
+revenue <- read_csv('revenues.csv')
+
+#remove columns that are entirely NAs (that includes sports like Archery, for example, which doesn't have program at UMD)
+expenses <- expenses[ , colSums(is.na(expenses)) < nrow(expenses)]
+op_expenses <- op_expenses[ , colSums(is.na(op_expenses)) < nrow(op_expenses)]
+recruiting <- recruiting[ , colSums(is.na(recruiting)) < nrow(recruiting)]
+revenue <- revenue[ , colSums(is.na(revenue)) < nrow(revenue)]
+
+#take a look
+head(expenses)
+head(op_expenses)
+head(recruiting)
+head(revenue)
+
+```
+
+#Taking a closer look at revenue, and a visualization attempt
+```{r}
+
+#load ggplot2 and lubridate
+library(ggplot2)
+library(lubridate)
+
+#to isolate
+total_revenue <-
+  revenue %>%
+  select("Survey Year","Total Men's Team Revenue", "Total Women's Team Revenue")
+
+#pivot to prep for visualization
+total_revenue <-
+total_revenue %>% pivot_longer(cols=c("Total Men's Team Revenue", "Total Women's Team Revenue"),
+                    names_to='team',
+                    values_to='revenue')
+
+#a line chart attempt
+ggplot(data=total_revenue, aes(x="Survey Year", y= revenue, group = team)) +
+  geom_line()+
+  geom_point()
+
+#hmm, no dice on the visualization 
+
+#maybe a data type issue? 
+
+#here's a scrapped attempt to read the survey year as a date
+#total_revenue$`Survey Year` <- ymd(total_revenue$`Survey Year`)
+
+```
+
+
+#Regarding the bonus data
+I also plan to request historic attendance data, whether it fits directly into the purview of this project or not. I plan to send a PIA request to the University of Maryland requesting data on attendance for all sports over the past ten years by game. I expect this might be an expensive request, but it's worth a shot. 
+
+Here's where I will send the PIA: https://www.umd.edu/administration/public-information-request 
+
+#Looking ahead, questions and concerns
+My current concern is that I might be heading in a bit too broadly, but I think I can continue to use the bullet points I identified at the top to guide my reporting. I'm not sure how much data I'll really need here to tell a compelling story, but I suppose I can use the other bullet points to fall back on if I don't have a compelling story come out of the existing metrics. Still, I'm confident there's something I can pull from the report.
+
+On another note, I'm also still thinking about the planned time frame to explore. I'm thinking about the past ten years, since I've been told ten years can be a good baseline for this sort of analysis, but I'm also open to looking at this data over a longer time frame. I'm not sure what the best course of action is here.
+
+#Action items
+Next up, on my things to do:
+--> Send the PIA on attendance!
+--> Get to the bottom of the data situation. Account for any skipped years. Compile the dataframe into something neater. Be sure to understand all variables fully.
+
+
+#Other relevant works
+This law firm conducted an external equity report on the NCAA. It can be viewed here: https://ncaagenderequityreview.com/ 
+
+Here's an NPR report based on the external equity report: https://www.npr.org/2021/08/03/1024481199/report-ncaa-undervalues-womens-basketball-prioritizes-mens-teams 
+
+Here's an AP story that shows that the NCAA spends more on male athletes than female athletes: https://www.espn.com/college-sports/story/_/id/32481915/second-ncaa-gender-equity-report-shows-more-money-spent-male-athletes-female-ones 
+
+Here's an AP story about pay equality for NCAA referees: https://apnews.com/article/sports-college-basketball-march-madness-eabc98c307c975c7b56ce843a69d885f 
+
+
