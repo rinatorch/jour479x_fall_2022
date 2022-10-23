@@ -80,6 +80,14 @@ ggplot(data=total_revenue, aes(x=`Survey Year`, y=revenue, group = team, color =
   scale_y_continuous(labels = scales::comma, limits = c(0, 80000000)
   )
 
+#quick calc of 2020 figures:
+45476556 - 12872607
+
+#quick calc of 2018 figures:
+	
+61451225 - 2053603
+
+
 ```
 
 
@@ -125,14 +133,16 @@ The survey data ends in 2020, which represents data collected from 07/01/2020 - 
 #A quick visualization of expense data over time
 ```{r}
 library(tidyverse)
-#expenses
 
+#select columns in mens df
 expenses_mens <- expenses %>%
   select(`Survey Year`, `Total Men's Team Expenses`, `Total Women's Team Expenses`)
 
+#select columns in womens df
 expenses_womens <- expenses %>%
   select(`Survey Year`, `Total Women's Team Expenses`)
 
+#plot expenses comparison df
 ggplot() + 
   geom_line(data=expenses_mens, aes(x=`Survey Year`, y=`Total Men's Team Expenses`, color="Total Men's Team Expenses")) + 
   geom_line(data=expenses_womens, aes(x=`Survey Year`, y=`Total Women's Team Expenses`, color="Total Women's Team Expenses")) +
@@ -143,6 +153,11 @@ ggplot() +
   scale_y_continuous(labels = scales::comma, limits = c(0, 50000000)
 )
 
+#quick calc for 2020 expenses:
+36715851 - 16596198
+
+#quick calc for 2018 expenses:
+46653085 - 16851743
 
 ```
 
@@ -172,10 +187,13 @@ ggplot() +
 Next, I want to take a look a look at the breakdown of where these expenses are coming from. I'm curious to see visualize which teams are spending what and which teams are spending the most. I'm also curious to see similar data from recruiting. It will be interesting to compare recruiting expenses for women's and men's basketball, for example, which should be more comparable. Men's football is likely to be playing a major role in these figures, so it will be interesting to inspect just how big that role is, and what the gap between men's and women's sports look like without football expenses. I also am eager to visualize and analyze data on revenues, similarly factoring in and factoring out football. I also plan to compare this against at least one other Big Ten schools.
 
 #Here's a quick look at what incorporating the Big Ten might look like.
+This is expense data on all Big Ten teams. It could be interesting to measure the size of the gap between each of these teams, as well.
 
 ```{r}
-#This is expense data on all Big Ten teams. It could be interesting to measure the size of the gap between each of these teams, as well.
+
 big10_expenses <- read_csv('big10_expenses.csv')
+
+#clean the data
 big10_expenses$`Institution Name` <- tolower(big10_expenses$`Institution Name`)
 big10_expenses$`Institution Name` <- gsub("rutgers university-new brunswick/piscataway", "rutgers", big10_expenses$`Institution Name`)
 big10_expenses$`Institution Name` <- gsub("rutgers university-new brunswick", "rutgers", big10_expenses$`Institution Name`)
@@ -183,11 +201,11 @@ big10_expenses$`Institution Name` <- gsub("rutgers university-new brunswick/pisc
 big10_expenses$`Institution Name` <- gsub("university of illinois urbana-champaign", "illinois", big10_expenses$`Institution Name`)
 big10_expenses$`Institution Name` <- gsub("university of illinois at urbana-champaign", "illinois", big10_expenses$`Institution Name`)
 
-
+#column selection
 big10_selects <- big10_expenses %>%
   select(`Survey Year`, `Institution Name`,`Total Men's Team Expenses`, `Total Women's Team Expenses`)
 
-
+#create a men's graphics
 mens <- ggplot() + 
   geom_line(data=big10_selects, aes(x=`Survey Year`, y=`Total Men's Team Expenses`,  group=`Institution Name`, color=`Institution Name`)) + 
   scale_y_continuous(labels = scales::comma, limits = c(0, 95000000)
@@ -195,6 +213,7 @@ mens <- ggplot() +
 
 mens
 
+#create a women's graphic
 womens <- ggplot() + 
   geom_line(data=big10_selects, aes(x=`Survey Year`, y=`Total Women's Team Expenses`,  group=`Institution Name`, color=`Institution Name`)) + 
   scale_y_continuous(labels = scales::comma, limits = c(0, 95000000)
@@ -202,21 +221,26 @@ womens <- ggplot() +
 
 womens
 
-#an attempt to plot these charts next to each other
+#a fallen attempt to plot these charts next to each other
 #library(cowplot)
 #plot_grid(mens, womens)
 
 #Of course, the legend labels need to be fixed!
 
 ```
+These graphics are plotted on the same axes. When you switch back and forth between spending on women's teams vs. spending on men's teams, the differences are quite stark. One men's team spent more than $75 million on men's teams. Meanwhile, few expenses for women's teams topped $25 million. 
+
 #Measuring the gap between expenses each year, some free experimentation
 ```{r}
+#measure gap in collumn
 big10_selects <- big10_selects%>%
   mutate(gap = `Total Men's Team Expenses` - `Total Women's Team Expenses` )
 
+#filter df to umd
 terps_expense_gap <- big10_selects%>%
   filter(`Institution Name` == "university of maryland-college park")
 
+#visualize umd vs. the rest of the Big 10.
 ggplot() + 
   geom_line(data=big10_selects, aes(x=`Survey Year`, y=`gap`, group=`Institution Name`), color="grey") + 
   geom_line(data=terps_expense_gap, aes(x=`Survey Year`, y=`gap`), color="red") + 
@@ -226,14 +250,13 @@ ggplot() +
   scale_y_continuous(labels = scales::comma, limits = c(0, 70000000)
 )
 
-#It looks like the Maryland sports gender gap is smaller than that of other Big Ten teams.
-
 ```
 
-Are there outliers or patterns in recruiting spending? Do those coincide with success or coaching changes or performance?
+It looks like the Maryland sports gender gap is smaller than that of other Big Ten teams.It appears to be the lowest in 2020. This is curious and leaves me wondering -- why is this the case?
 
+Next, I'm going to take a look at patterns across sports, and later, I'm going to pull in some performance data. 
 
-#Recruting spending by sport, Maryland
+#Let's take a look at expenses by sport at Maryland
 ```{r}
 
 #clean up the data
@@ -254,9 +277,7 @@ ggplot() +
    scale_y_continuous(labels = scales::comma, limits = c(0, 30000000)
 )
 
-#this label list is huge, but we can see men's basketball sticking out. let's zoom in a bit.
 ```
-
 
 #Let's take a look at a more specific selection of sports. The first one was too broad. All of the labels and lines were smushed.
 ```{r}
@@ -279,7 +300,7 @@ ggplot() +
    scale_y_continuous(labels = scales::comma,)
 
 ```
-This visualization is a lot easier to take in. It makes the breadth of football spending visible. Men's and women's basketball are also huge. 
+This visualization is a lot easier to take in. It makes the breadth of football spending visible. Basketball is also prominent.
 
 #Now, let's exclude football.
 ```{r}
@@ -322,21 +343,40 @@ ggplot() +
     title="UMD spends more on men's basketball than it does on women's basketball") + 
    scale_y_continuous(labels = scales::comma,)
 
+#quick calc for 2020:
+7727539 - 4808843
+```
+
+
+#Let's watch the gap between these two teams over time.
+```{r}
+#adding a gap column
+md_teams_expenses_select_bball <- md_teams_expenses_selects_bball%>%
+  mutate(gap = `Basketball Men's Team Expenses` - `Basketball Women's Team Expenses` )
+
+#plot
+ggplot() + 
+  geom_line(data=md_teams_expenses_select_bball, aes(x=`Survey Year`, y=gap)) +
+  labs(
+    title="UMD spends more on men's basketball than it does on women's basketball") + 
+   scale_y_continuous(labels = scales::comma,)
+
+
 ```
 
 #Let's compare revenues between men's and women's basketball.
 
 ```{r}
-
+#select columns
 md_bball_revenues <- revenue%>%
   select(`Institution Name`, `Survey Year`, `Basketball Men's Team Revenue`, `Basketball Women's Team Revenue`)
 
-
+#prep for visualization
 long_bball_revenues <- md_bball_revenues %>% pivot_longer(cols=c("Basketball Men's Team Revenue", "Basketball Women's Team Revenue"),
                     names_to='team',
                     values_to='revenue')
 
-
+#visualize
 ggplot() + 
   geom_line(data=long_bball_revenues, aes(x=`Survey Year`, y=revenue,  group=team, color=team)) +
   labs(
@@ -351,7 +391,11 @@ It would also be interesting to look at recruiting expenses, but it seems the EA
 #Now, let's look at winning records for men's and women's basketball.
 ```{r}
 #load in men's basketball data
+
 md_mbb <- read.csv("terps_season_records_mens.csv")
+
+#add in this library to update column name
+library(data.table)
 md_mbb <- setnames(md_mbb, "WL.", "mens_record", skip_absent=TRUE)
 
 
@@ -380,12 +424,15 @@ ggplot() +
 Maryland women's basketball, represnted in blue, has has a higher winning percentage than men's basketball since about 2010. Still, Maryland athletics is spending more on men's basketball and making more on men's basketball.
 
 #Returning to our working question: How has the gap between men's and women's sports changed at UMD over the years?
+TLDR: Maryland athletics invests more in men's sports than women's sports. The gap has shrunk in 2020, but that's also the start of the pandemic. Compared to other Big Ten teams, the gap between men's and women's sports expense gap is smaller.
 
+--> Maryland earns much more on men's sports than it does on women's sports. In 2020, the revenue gap was more than $32 million. In 2018, that gap was nearly $60 million. 
+--> When it comes to expenses, Marylands spends more on men's sports than it does on women's sports. In 2020, Maryland spent more than $20 million dollars more than it did on women's sports. In 2018, that gap was approaching $30 million. The gap appears to have shrunken, but the differences are still stark.
+--> Football dominates Maryland athletics spending. Men's and women's basketball follow. Maryland spends a hefty sum on men's basketball. In 2020, the gap between men's and women's basketball spending was nearing $3 million.
+--> The expenses discrepancy between men's and women's basketball is interesting, especially when we take each team's winning percentage into account. The women's basketball has been winning more than the men's team since 2010, but that year doesn't seem to be a turning point. The gap between these teams has decreased since 2018, but it's still higher than it has been historically.
+--> The revenue discrepancy between men's and women's basketball is wide. Women's basketball revenue never reached $5 million. Meanwhile, Men's basketball revenue has eclipsed the $15 million mark.
+--> While data is not available on recruiting by year, there is a wide margin between men's and women's recruiting expenses. 
 --> When comparing Maryland to the rest of the Big 10, the expenses gap between men's and women's sports is on the smaller side. 
-
-
-This question is multifaceted. Through equity reports, I plan to explore the following elements over the past ten years:
---> The difference in revenue for men's and women's sports
---> The difference in total expenses (including game-day expenses) for men's and women's sports
---> The difference in expenses for recruiting in men's and women's sports
-In conclusion, the discrepancies are pretty clear. Data shows significant discrepancies in the money Maryland athletics has spent on women's vs. men's sports.
+ 
+#Up next:
+It would be interesting to monitor percentage changes, so we could pull headline metrics for how much this gap has changed from point A to point B. It could also be interesting to do a deep dive on smaller sports teams, or on other teams beyond basketball, in general. There also game day expenses and operating expenses that I could review and analyze. I also need to spend analyzing these results and understanding why they might be the way are: What explains these gaps? Why might the gap be greater at other Big 10 schools? Also, what role is football playing here? And what do we do analytically about how big that role is?
