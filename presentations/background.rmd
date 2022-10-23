@@ -40,6 +40,7 @@ revenue <- read_csv('revenues.csv')
 expenses <- expenses[ , colSums(is.na(expenses)) < nrow(expenses)]
 op_expenses <- op_expenses[ , colSums(is.na(op_expenses)) < nrow(op_expenses)]
 recruiting <- recruiting[ , colSums(is.na(recruiting)) < nrow(recruiting)]
+recruiting$`Institution Name` <- tolower(recruiting$`Institution Name`)
 revenue <- revenue[ , colSums(is.na(revenue)) < nrow(revenue)]
 
 #take a look
@@ -69,16 +70,15 @@ total_revenue %>% pivot_longer(cols=c("Total Men's Team Revenue", "Total Women's
                     values_to='revenue')
 
 #a line chart attempt
-ggplot(data=total_revenue, aes(x="Survey Year", y= revenue, group = team)) +
+ggplot(data=total_revenue, aes(x=`Survey Year`, y=revenue, group = team, color = team)) +
   geom_line()+
-  geom_point()
-
-#hmm, no dice on the visualization 
-
-#maybe a data type issue? 
-
-#here's a scrapped attempt to read the survey year as a date
-#total_revenue$`Survey Year` <- ymd(total_revenue$`Survey Year`)
+  geom_point() +
+ labs(
+    title="Maryland is earning more on men's sports than on women's sports", 
+    x="Year", 
+    y="Dollar amount") + 
+  scale_y_continuous(labels = scales::comma, limits = c(0, 80000000)
+  )
 
 ```
 
@@ -161,7 +161,7 @@ ggplot() +
   geom_line(data=rec_mens, aes(x=`Survey Year`, y=`Men's Team Recruiting Expenses`, color="Men's Team Recruiting Expenses")) + 
   geom_line(data=rec_womens, aes(x=`Survey Year`, y=`Women's Team Recruiting Expenses`, color="Women's Team Recruiting Expenses")) +
   labs(
-    title="Maryland pours more money into men's sports than women's sports", 
+    title="Maryland pours more money into men's sports recruiting than women's sports", 
     x="Year", 
     y="Dollar amount") + 
   scale_y_continuous(labels = scales::comma, limits = c(0, 1200000)
@@ -176,6 +176,12 @@ Next, I want to take a look a look at the breakdown of where these expenses are 
 ```{r}
 #This is expense data on all Big Ten teams. It could be interesting to measure the size of the gap between each of these teams, as well.
 big10_expenses <- read_csv('big10_expenses.csv')
+big10_expenses$`Institution Name` <- tolower(big10_expenses$`Institution Name`)
+big10_expenses$`Institution Name` <- gsub("rutgers university-new brunswick/piscataway", "rutgers", big10_expenses$`Institution Name`)
+big10_expenses$`Institution Name` <- gsub("rutgers university-new brunswick", "rutgers", big10_expenses$`Institution Name`)
+big10_expenses$`Institution Name` <- gsub("rutgers university-new brunswick/piscataway", "rutgers", big10_expenses$`Institution Name`)
+big10_expenses$`Institution Name` <- gsub("university of illinois urbana-champaign", "illinois", big10_expenses$`Institution Name`)
+big10_expenses$`Institution Name` <- gsub("university of illinois at urbana-champaign", "illinois", big10_expenses$`Institution Name`)
 
 
 big10_selects <- big10_expenses %>%
@@ -184,14 +190,14 @@ big10_selects <- big10_expenses %>%
 
 mens <- ggplot() + 
   geom_line(data=big10_selects, aes(x=`Survey Year`, y=`Total Men's Team Expenses`,  group=`Institution Name`, color=`Institution Name`)) + 
-  scale_y_continuous(labels = scales::comma, limits = c(0, 70000000)
+  scale_y_continuous(labels = scales::comma, limits = c(0, 95000000)
 )
 
 mens
 
 womens <- ggplot() + 
   geom_line(data=big10_selects, aes(x=`Survey Year`, y=`Total Women's Team Expenses`,  group=`Institution Name`, color=`Institution Name`)) + 
-  scale_y_continuous(labels = scales::comma, limits = c(0, 70000000)
+  scale_y_continuous(labels = scales::comma, limits = c(0, 95000000)
 )
 
 womens
@@ -208,12 +214,15 @@ womens
 big10_selects <- big10_selects%>%
   mutate(gap = `Total Men's Team Expenses` - `Total Women's Team Expenses` )
 
-expenses_selects <- expenses_selects%>%
-  mutate(gap = `Total Men's Team Expenses` - `Total Women's Team Expenses` )
+terps_expense_gap <- big10_selects%>%
+  filter(`Institution Name` == "university of maryland-college park")
 
 ggplot() + 
   geom_line(data=big10_selects, aes(x=`Survey Year`, y=`gap`, group=`Institution Name`), color="grey") + 
-  geom_line(data=expenses_selects, aes(x=`Survey Year`, y=`gap`), color="red") + 
+  geom_line(data=terps_expense_gap, aes(x=`Survey Year`, y=`gap`), color="red") + 
+  labs(
+    title="In the Big 10, the gap between men's and women's sports is smaller at UMD",
+    y="expenses gap")+ 
   scale_y_continuous(labels = scales::comma, limits = c(0, 70000000)
 )
 
@@ -221,5 +230,162 @@ ggplot() +
 
 ```
 
+Are there outliers or patterns in recruiting spending? Do those coincide with success or coaching changes or performance?
 
 
+#Recruting spending by sport, Maryland
+```{r}
+
+#clean up the data
+expenses$`Institution Name` <- tolower(expenses$`Institution Name`)
+
+#select teams of interest
+md_teams_expenses <- expenses%>%
+  select(`Institution Name`, `Survey Year`, `Basketball Men's Team Expenses`, `Basketball Women's Team Expenses`, `Baseball Total Expenses`,`Field Hockey Total Expenses`, `Football Total Expenses`, `Golf Men's Team Expenses`, `Golf Women's Team Expenses`, `Gymnastics Women's Team Expenses`, `Lacrosse Men's Team Expenses`, `Lacrosse Women's Team Expenses`, `Soccer Men's Team Expenses`, `Soccer Women's Team Expenses`, `Softball Total Expenses`, `Swimming and Diving Men's Team Expenses`, `Swimming and Diving Women's Team Expenses`, `Tennis Men's Team Expenses`, `Tennis Women's Team Expenses`,`Volleyball Total Expenses`,`Water Polo Total Expenses`, `Wrestling Total Expenses`)
+
+#prep for visualization y pivoting longer
+md_teams_expenses_long <-
+md_teams_expenses %>% pivot_longer(cols=c("Basketball Men's Team Expenses", "Basketball Women's Team Expenses", "Baseball Total Expenses","Field Hockey Total Expenses", "Football Total Expenses", "Golf Men's Team Expenses", "Golf Women's Team Expenses", "Gymnastics Women's Team Expenses", "Lacrosse Men's Team Expenses", "Lacrosse Women's Team Expenses", "Soccer Men's Team Expenses", "Soccer Women's Team Expenses", "Softball Total Expenses", "Swimming and Diving Men's Team Expenses", "Swimming and Diving Women's Team Expenses", "Tennis Men's Team Expenses", "Tennis Women's Team Expenses","Volleyball Total Expenses","Water Polo Total Expenses", "Wrestling Total Expenses"),
+                    names_to='team',
+                    values_to='expenses')
+#let's visualize
+ggplot() + 
+  geom_line(data=md_teams_expenses_long, aes(x=`Survey Year`, y=expenses,  group=team, color=team)) +
+   scale_y_continuous(labels = scales::comma, limits = c(0, 30000000)
+)
+
+#this label list is huge, but we can see men's basketball sticking out. let's zoom in a bit.
+```
+
+
+#Let's take a look at a more specific selection of sports. The first one was too broad. All of the labels and lines were smushed.
+```{r}
+#new sports selection, excluding swim and dive, gymnastics, water polo
+md_teams_expenses_selects <- expenses%>%
+  select(`Institution Name`, `Survey Year`, `Basketball Men's Team Expenses`, `Basketball Women's Team Expenses`, `Baseball Total Expenses`,`Field Hockey Total Expenses`, `Football Total Expenses`, `Lacrosse Men's Team Expenses`, `Lacrosse Women's Team Expenses`, `Soccer Men's Team Expenses`, `Soccer Women's Team Expenses`, `Softball Total Expenses`,  `Volleyball Total Expenses`, `Wrestling Total Expenses`)
+
+
+#prep for visualization by pivoting
+md_teams_expenses_long_selects <-
+md_teams_expenses_selects %>% pivot_longer(cols=c("Basketball Men's Team Expenses", "Basketball Women's Team Expenses", "Baseball Total Expenses","Field Hockey Total Expenses", "Football Total Expenses", "Lacrosse Men's Team Expenses", "Lacrosse Women's Team Expenses", "Soccer Men's Team Expenses", "Soccer Women's Team Expenses", "Softball Total Expenses", "Volleyball Total Expenses", "Wrestling Total Expenses"),
+                    names_to='team',
+                    values_to='expenses')
+
+
+ggplot() + 
+  geom_line(data=md_teams_expenses_long_selects, aes(x=`Survey Year`, y=expenses,  group=team, color=team)) +
+  labs(
+    title="Maryland spends the vast majority of its athletics money on football") + 
+   scale_y_continuous(labels = scales::comma,)
+
+```
+This visualization is a lot easier to take in. It makes the breadth of football spending visible. Men's and women's basketball are also huge. 
+
+#Now, let's exclude football.
+```{r}
+#select list of teams
+md_teams_expenses_selects_big_nofb <- expenses%>%
+  select(`Institution Name`, `Survey Year`, `Basketball Men's Team Expenses`, `Basketball Women's Team Expenses`, `Baseball Total Expenses`,`Field Hockey Total Expenses`, `Lacrosse Men's Team Expenses`, `Lacrosse Women's Team Expenses`, `Soccer Men's Team Expenses`, `Soccer Women's Team Expenses`, `Softball Total Expenses`,  `Volleyball Total Expenses`)
+
+#pivot to prep for visualization
+md_teams_expenses_long_selects_big_nofb <-
+md_teams_expenses_selects_big_nofb %>% pivot_longer(cols=c("Basketball Men's Team Expenses", "Basketball Women's Team Expenses", "Baseball Total Expenses","Field Hockey Total Expenses","Lacrosse Men's Team Expenses", "Lacrosse Women's Team Expenses", "Soccer Men's Team Expenses", "Soccer Women's Team Expenses", "Softball Total Expenses", "Volleyball Total Expenses"),
+                    names_to='team',
+                    values_to='expenses')
+#visualize!
+ggplot() + 
+  geom_line(data=md_teams_expenses_long_selects_big_nofb, aes(x=`Survey Year`, y=expenses,  group=team, color=team)) + 
+  labs(
+    title="Outside of football, Maryland spends a lot of money on basketball") + 
+   scale_y_continuous(labels = scales::comma,)
+
+```
+Here, we can see just how big the gap between men's and women's basketball is. We can also see the gap between basketball and all of these other sports.
+
+
+#Let's look at just basketball.
+```{r}
+
+#select columns
+md_teams_expenses_selects_bball <- expenses%>%
+  select(`Institution Name`, `Survey Year`, `Basketball Men's Team Expenses`, `Basketball Women's Team Expenses`)
+
+#pivot
+md_teams_expenses_long_selects_bball <-
+md_teams_expenses_selects_bball %>% pivot_longer(cols=c("Basketball Men's Team Expenses", "Basketball Women's Team Expenses"),
+                    names_to='team',
+                    values_to='expenses')
+#visualize
+ggplot() + 
+  geom_line(data=md_teams_expenses_long_selects_bball, aes(x=`Survey Year`, y=expenses,  group=team, color=team)) +
+  labs(
+    title="UMD spends more on men's basketball than it does on women's basketball") + 
+   scale_y_continuous(labels = scales::comma,)
+
+```
+
+#Let's compare revenues between men's and women's basketball.
+
+```{r}
+
+md_bball_revenues <- revenue%>%
+  select(`Institution Name`, `Survey Year`, `Basketball Men's Team Revenue`, `Basketball Women's Team Revenue`)
+
+
+long_bball_revenues <- md_bball_revenues %>% pivot_longer(cols=c("Basketball Men's Team Revenue", "Basketball Women's Team Revenue"),
+                    names_to='team',
+                    values_to='revenue')
+
+
+ggplot() + 
+  geom_line(data=long_bball_revenues, aes(x=`Survey Year`, y=revenue,  group=team, color=team)) +
+  labs(
+    title="Maryland makes much more from men's basketball than women's basketball") + 
+   scale_y_continuous(labels = scales::comma,)
+
+```
+Hmm, that's a funky looking pattern for men's basketball. It looks like the gap widened before COVID and narrowed afterward. Because of the nature of the pandemic, I feel like we can't quite make any judgement on what's going on with that decline. Still of note, though, women's basketball did trend up. It's interesting that men's basketball is a bit erratic but women's basketball is very steady. 
+
+It would also be interesting to look at recruiting expenses, but it seems the EADA does not break down this data by team, as far as my research has shown.But we do know that Maryland spends more on men's recruiting. I'm sure football is a big contributor to this, but we can't narrow to that given the data that we have. 
+
+#Now, let's look at winning records for men's and women's basketball.
+```{r}
+#load in men's basketball data
+md_mbb <- read.csv("terps_season_records_mens.csv")
+md_mbb <- setnames(md_mbb, "WL.", "mens_record", skip_absent=TRUE)
+
+
+#join men's basketball season record data with revenues
+md_mbb_full <- right_join(md_mbb, md_bball_revenues, by=c('Year'='Survey Year'))%>%
+  select("Year", "Basketball Men's Team Revenue", "Basketball Women's Team Revenue","mens_record", "Head.Coaches")
+
+#read in men's basketball data
+md_wbb <- read.csv("terps_season_records_womens.csv")
+md_wbb <- setnames(md_wbb, "WL.", "womens_record", skip_absent=TRUE)
+
+#join on year
+md_bb_full <- right_join(md_mbb_full, md_wbb, by=c('Year'='Year'))
+
+#build plot
+ggplot() + 
+  geom_line(data=md_wbb, aes(x=Year, y=womens_record), color="blue") +
+  geom_line(data=md_mbb, aes (x=Year, y=mens_record), color="green") +
+  labs(
+    title="Maryland women's basketball wins more than men's basketball",
+    y="win-percentage",) +
+   scale_y_continuous(labels = scales::comma,) +
+    scale_x_continuous(limits = c(2003, 2020))
+
+```
+Maryland women's basketball, represnted in blue, has has a higher winning percentage than men's basketball since about 2010. Still, Maryland athletics is spending more on men's basketball and making more on men's basketball.
+
+#Returning to our working question: How has the gap between men's and women's sports changed at UMD over the years?
+
+--> When comparing Maryland to the rest of the Big 10, the expenses gap between men's and women's sports is on the smaller side. 
+
+
+This question is multifaceted. Through equity reports, I plan to explore the following elements over the past ten years:
+--> The difference in revenue for men's and women's sports
+--> The difference in total expenses (including game-day expenses) for men's and women's sports
+--> The difference in expenses for recruiting in men's and women's sports
+In conclusion, the discrepancies are pretty clear. Data shows significant discrepancies in the money Maryland athletics has spent on women's vs. men's sports.
