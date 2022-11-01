@@ -44,12 +44,13 @@ ggplot() +
   geom_line(data=expenses_mens, aes(x=`Survey Year`, y=`Total Men's Team Expenses`, color="Total Men's Team Expenses")) + 
   geom_line(data=expenses_womens, aes(x=`Survey Year`, y=`Total Women's Team Expenses`, color="Total Women's Team Expenses")) +
   labs(
-    title="Maryland spends more on men's sports", 
+    title="Maryland spends more on men's teams", 
     x="Year", 
     y="Dollar amount",
+    subtitle = "The expenses gap between men's and women's sports has widened since 2003.",
     caption="Source: U.S. Department of Education | By Rina Torchinsky", color='Team') +
   theme(
-    plot.title = element_text(size = 16, face = "bold"),
+    plot.title = element_text(size = 12, face = "bold"),
     axis.title = element_text(size = 8), 
     plot.subtitle = element_text(size=10), 
     panel.grid.minor = element_blank()
@@ -102,7 +103,7 @@ ggplot() +
 
 
 ```
-It looks like Maryland's gap isn't as big as that of other teams. Next, I switched gears a bit. I wanted to know what Maryland's expense breakdown looks like across sports. I figured football must be playing a substantial role here. For perspective, I checked out Maryland expenses by sports.
+We're representing Maryland in red in this scratch chart. It looks like Maryland's gap isn't as big as that of other teams. Next, I switched gears a bit. I wanted to know what Maryland's expense breakdown looks like across sports. I figured football must be playing a substantial role here. For perspective, I checked out Maryland expenses by sports.
 
 
 #Let's look at spending across Maryland sports. 
