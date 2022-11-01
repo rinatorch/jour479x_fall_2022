@@ -302,7 +302,8 @@ ggplot() +
     
        x="Year",
        y="Expenses in Dollars",
-       caption="Source: U.S. Department of Education | By Rina Torchinsky", color='Institution')+
+       caption="Source: U.S. Department of Education | By Rina Torchinsky", color='Institution',
+       subtitle ="Maryland Athletics spent $424,829 more on men's soccer than women's soccer in 2020.")+
     scale_y_continuous(labels = scales::comma,)+
    theme(
     plot.title = element_text(size = 12, face = "bold"),
