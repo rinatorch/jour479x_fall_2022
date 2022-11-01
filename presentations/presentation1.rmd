@@ -1,0 +1,354 @@
+---
+title: "presentation1"
+output: html_document
+date: "2022-10-31"
+---
+In this presentation, I'll take you on a tour of disparities in expenses across Maryland Athletics, and how it compares to other schools in the Big Ten. After exploring data on a variety of sports, I'll explain how I came to my conclusion and the crux of my exploration: Of all Big Ten schools, Maryland Athletics has the biggest gap in expenses between its men's and women's soccer teams. Coaching salaries are playing a big role in that disparity.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Much of this exploration stems from Equity in Athletics Data Analysis reports, which is filed by co-ed postsecondary institutions that receive Title IV funding and have an intercollegiate athletics program. The U.S. Department of Education's Office of Postsecondary Education has a data tool that allows users to download elements of the report. The data tool includes data on the University of Maryland from 2003 to 2020.
+
+--> Here is the data tool: https://ope.ed.gov/athletics/#/institution/details 
+
+#First, lets load some libraries.
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(data.table)
+
+```
+
+#Now, let's pull in the data.
+One of the first things I did was inspect expenses across Maryland Athletics.
+```{r}
+expenses <- read_csv('expenses.csv')
+
+#Clean the data. Remove columns that are entirely NAs (that includes sports like Archery, for example, which doesn't have program at UMD)
+expenses <- expenses[ , colSums(is.na(expenses)) < nrow(expenses)]
+```
+
+#Next I created dataframes for Total UMD Men's Expenses and Total UMD Women's Expenses, in preparation for visualization.
+```{r}
+expenses_mens <- expenses %>%
+  select(`Survey Year`, `Total Men's Team Expenses`)
+
+expenses_womens <- expenses %>%
+  select(`Survey Year`, `Total Women's Team Expenses`)
+
+#Visualize!
+ggplot() + 
+  geom_line(data=expenses_mens, aes(x=`Survey Year`, y=`Total Men's Team Expenses`, color="Total Men's Team Expenses")) + 
+  geom_line(data=expenses_womens, aes(x=`Survey Year`, y=`Total Women's Team Expenses`, color="Total Women's Team Expenses")) +
+  labs(
+    title="Maryland spends more on men's sports", 
+    x="Year", 
+    y="Dollar amount",
+    caption="Source: U.S. Department of Education | By Rina Torchinsky", color='Team') +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title = element_text(size = 8), 
+    plot.subtitle = element_text(size=10), 
+    panel.grid.minor = element_blank()
+    )+
+  scale_y_continuous(labels = scales::comma, limits = c(0, 50000000)
+)
+
+
+```
+This visualization shows us there's a difference between expenses for men's and women's sports at UMD. I was curious about how this gap compared against other Big Ten schools.
+
+#Let's compare this to gap the rest of the Big Ten.
+
+```{r}
+#Load in Big Ten expenses data.
+big10_expenses <- read_csv('big10_expenses.csv')
+
+#clean the data.
+big10_expenses$`Institution Name` <- tolower(big10_expenses$`Institution Name`)
+big10_expenses$`Institution Name` <- gsub("rutgers university-new brunswick/piscataway", "rutgers", big10_expenses$`Institution Name`)
+big10_expenses$`Institution Name` <- gsub("rutgers university-new brunswick", "rutgers", big10_expenses$`Institution Name`)
+big10_expenses$`Institution Name` <- gsub("rutgers university-new brunswick/piscataway", "rutgers", big10_expenses$`Institution Name`)
+big10_expenses$`Institution Name` <- gsub("university of illinois urbana-champaign", "illinois", big10_expenses$`Institution Name`)
+big10_expenses$`Institution Name` <- gsub("university of illinois at urbana-champaign", "illinois", big10_expenses$`Institution Name`)
+
+#Let's measure the gap between men's and women's team.
+big10_selects <- big10_expenses%>%
+  mutate(gap = `Total Men's Team Expenses` - `Total Women's Team Expenses` )
+
+#Here's a variable that just measures Terps data.
+terps_expense_gap <- big10_selects%>%
+  filter(`Institution Name` == "university of maryland-college park")
+
+#Visualize!
+ggplot() + 
+  geom_line(data=big10_selects, aes(x=`Survey Year`, y=`gap`, group=`Institution Name`), color="grey") + 
+  geom_line(data=terps_expense_gap, aes(x=`Survey Year`, y=`gap`), color="red") + 
+  labs(
+    title="In the Big 10, Maryland has a smaller gap between men's and women's sports",
+    y="Expenses Gap",
+    x="Year")+ 
+   theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 8), 
+    plot.subtitle = element_text(size=10), 
+    panel.grid.minor = element_blank()
+    )+
+  scale_y_continuous(labels = scales::comma, limits = c(0, 70000000)
+)
+
+
+```
+It looks like Maryland's gap isn't as big as that of other teams. Next, I switched gears a bit. I wanted to know what Maryland's expense breakdown looks like across sports. I figured football must be playing a substantial role here. For perspective, I checked out Maryland expenses by sports.
+
+
+#Let's look at spending across Maryland sports. 
+Here we go, just for perspective.
+
+```{r}
+#Let's secure a selection of UMD sports, excluding some smaller programs: swim and dive, gymnastics and water polo.
+md_teams_expenses_selects <- expenses%>%
+  select(`Institution Name`, `Survey Year`, `Basketball Men's Team Expenses`, `Basketball Women's Team Expenses`, `Baseball Total Expenses`,`Field Hockey Total Expenses`, `Football Total Expenses`, `Lacrosse Men's Team Expenses`, `Lacrosse Women's Team Expenses`, `Soccer Men's Team Expenses`, `Soccer Women's Team Expenses`, `Softball Total Expenses`,  `Volleyball Total Expenses`, `Wrestling Total Expenses`)
+
+
+#Prepare for visualization by pivoting.
+md_teams_expenses_long_selects <-
+md_teams_expenses_selects %>% pivot_longer(cols=c("Basketball Men's Team Expenses", "Basketball Women's Team Expenses", "Baseball Total Expenses","Field Hockey Total Expenses", "Football Total Expenses", "Lacrosse Men's Team Expenses", "Lacrosse Women's Team Expenses", "Soccer Men's Team Expenses", "Soccer Women's Team Expenses", "Softball Total Expenses", "Volleyball Total Expenses", "Wrestling Total Expenses"),
+                    names_to='team',
+                    values_to='expenses')
+
+#Visualize!
+ggplot() + 
+  geom_line(data=md_teams_expenses_long_selects, aes(x=`Survey Year`, y=expenses,  group=team, color=team)) +
+  labs(
+    title="Maryland spends the vast majority of its athletics money on football") + 
+   scale_y_continuous(labels = scales::comma,)
+
+```
+My main takeaway from this is that football spending at UMD is huge, but this isn't too surprising. I wanted to explore discrepancies between individual sports.
+
+#Let's start with basketball.
+```{r}
+
+#Select columns.
+md_teams_expenses_selects_bball <- expenses%>%
+  select(`Institution Name`, `Survey Year`, `Basketball Men's Team Expenses`, `Basketball Women's Team Expenses`)
+
+#Pivot for visualization.
+md_teams_expenses_long_selects_bball <-
+md_teams_expenses_selects_bball %>% pivot_longer(cols=c("Basketball Men's Team Expenses", "Basketball Women's Team Expenses"),
+                    names_to='team',
+                    values_to='expenses')
+#Visualize.
+ggplot() + 
+  geom_line(data=md_teams_expenses_long_selects_bball, aes(x=`Survey Year`, y=expenses,  group=team, color=team)) +
+  labs(
+    title="UMD spends more on men's basketball than it does on women's basketball") + 
+   scale_y_continuous(labels = scales::comma,)
+
+```
+Alright, so the gap is definitely there. Just for context, let's throw in the team record.
+
+
+#And just for context, a quick peek at the winning records for men's and women's basketball.
+```{r}
+#Load in men's basketball wins data.
+md_mbb <- read.csv("terps_season_records_mens.csv")
+md_mbb <- setnames(md_mbb, "WL.", "mens_record", skip_absent=TRUE)
+
+#Read in men's basketball data.
+md_wbb <- read.csv("terps_season_records_womens.csv")
+md_wbb <- setnames(md_wbb, "WL.", "womens_record", skip_absent=TRUE)
+
+#Build plot.
+ggplot() + 
+  geom_line(data=md_wbb, aes(x=Year, y=womens_record), color="blue") +
+  geom_line(data=md_mbb, aes (x=Year, y=mens_record), color="green") +
+  labs(
+    title="Maryland women's basketball wins more than men's basketball",
+    y="win-percentage",) +
+   scale_y_continuous(labels = scales::comma,) +
+    scale_x_continuous(limits = c(2003, 2020))
+
+
+```
+
+This is just a scratch chart. I'm representing women's basketball in blue. The women's team has had a consistently stronger than the men's team over the past decade. But the men's team is getting all the funding.
+
+Zooming out again, though. How does it compare to the rest of the Big Ten?
+
+#A closer look at basketball across the Big 10
+```{r}
+
+#Let's calculate the gap across Big Ten basketball.
+big10bball <- big10_expenses%>%
+  select(`Survey Year`, `Institution Name`, `Basketball Men's Team Expenses`, `Basketball Women's Team Expenses`)%>%
+  mutate(gap = `Basketball Men's Team Expenses` - `Basketball Women's Team Expenses` )
+
+#Let's create some metrics to compare.
+big10_teams_expenses <-
+  big10bball%>%
+  group_by(`Institution Name`)%>%
+  summarise(total_mens_expenses = sum(`Basketball Men's Team Expenses`),
+            total_womens_expenses = sum(`Basketball Women's Team Expenses`),
+            avg_mens_expenses = mean(`Basketball Men's Team Expenses`),
+            avg_womens_expenses = mean(`Basketball Women's Team Expenses`),
+            mean_gap = mean(gap))%>%
+  arrange(desc(mean_gap))
+
+big10_teams_expenses
+```
+Maryland is in the middle pack here. This is notable and doesn't take away from the fact that there is a significant average gap, but I wanted to see if I could uncover something more compelling about the disparities in women's vs. men's sports at UMD.
+
+#Next, I looked at lacrosse and golf.
+
+```{r}
+
+#Isolate lax teams with men's and women's teams.
+lax_teams <- c('rutgers', 'ohio state university-main campus', 'university of maryland-college park')
+lax_b10<- big10_expenses%>%
+  select(`Survey Year`, `Institution Name`,`State CD`, `Lacrosse Men's Team Expenses`, `Lacrosse Women's Team Expenses`)%>%
+  filter(`Institution Name` == lax_teams)%>%
+  mutate(gap = `Lacrosse Men's Team Expenses` - `Lacrosse Women's Team Expenses`)%>%
+  arrange(desc(gap))
+
+lax_b10
+```
+The Terps actually have a smaller gap than other teams. Interesting. But I wasnted to keep looking.
+
+#Let's look at golf.
+```{r}
+
+#Isolate golf columns and calculate a gap.
+golf_b10 <- big10_expenses %>%
+   select(`Survey Year`, `Institution Name`,`State CD`, `Golf Men's Team Expenses`, `Golf Women's Team Expenses`)%>%
+  mutate(gap = `Golf Men's Team Expenses` - `Golf Women's Team Expenses`)%>%
+  arrange(gap)
+
+golf_b10
+
+```
+This is a bit of a wild finding! In 2020, the Terps spent more on women's golf than on men's golf. It's the first time we see a negative in this category. In other words, this is the first time we saw the Terps spending more on women's sports than men's sports.
+
+But I wanted to cover our bases a bit more. Enter soccer.
+
+#A dive into UMD soccer metrics
+```{r}
+
+#Zero in on soccer values.
+soccer_b10 <- big10_expenses %>%
+   select(`Survey Year`, `Institution Name`,`State CD`, `Soccer Men's Team Expenses`, `Soccer Women's Team Expenses`)%>%
+  mutate(gap = `Soccer Men's Team Expenses` - `Soccer Women's Team Expenses`)
+
+
+#Calculate a host of metrics. 
+big10_teams_soccer_expenses <-
+  soccer_b10%>%
+  group_by(`Institution Name`)%>%
+  summarise(total_mens_expenses = sum(`Soccer Men's Team Expenses`),
+            total_womens_expenses = sum(`Soccer Women's Team Expenses`),
+            avg_mens_expenses = mean(`Soccer Men's Team Expenses`),
+            avg_womens_expenses = mean(`Soccer Women's Team Expenses`),
+            mean_gap = mean(gap))%>%
+  arrange(desc(mean_gap))
+
+big10_teams_soccer_expenses
+```
+From 2003 to 2020, the Terps had the greatest average gap in spending on men's and women's basketball, out of all Big Ten teams. This one had me hooked. Maryland spends an average of more than $390,000 on men's soccer, compared to women's soccer.
+
+#Let's visualize it.
+```{r}
+
+#Plot!
+ggplot() + 
+  geom_line(data=soccer_b10, aes(x=`Survey Year`, y=gap,  group=`Institution Name`, color=`Institution Name`)) +
+  labs(title = "Maryland's soccer spending gap tops other Big Ten schools",
+       subtitle = "Of all Big Ten teams, Maryland has the biggest expenses gap between men's and women's soccer.",
+       x="Year",
+       y="Expenses Gap",
+       caption="Source: U.S. Department of Education | By Rina Torchinsky", color='Institution')+
+    scale_y_continuous(labels = scales::comma,)+
+   theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 8), 
+    plot.subtitle = element_text(size=9), 
+    panel.grid.minor = element_blank()
+    )
+
+
+```
+This gap is wild, and it's just so much higher than other Big Ten teams. A number of them are in the negatives -- spending more on women's soccer than on men's soccer. Northwestern is almost the opposite of Maryland.
+
+#Let's look at Maryland's soccer gap over time. 
+
+```{r}
+
+#Pivot to prep for visualization.
+
+big10_soccer_pivot <- soccer_b10%>%
+  pivot_longer(cols = c("Soccer Men's Team Expenses", "Soccer Women's Team Expenses"),
+               names_to='team',
+               values_to = 'expenses')%>%
+  filter(`Institution Name`=="university of maryland-college park")
+
+#Plot!
+ggplot() + 
+  geom_bar(data=big10_soccer_pivot, aes(x=`Survey Year`, weight=expenses, fill=team)) +
+  scale_y_continuous(labels = scales::comma,) +
+  labs(title = "Maryland men's soccer expenses dominates soccer spending",
+    
+       x="Year",
+       y="Expenses in Dollars",
+       caption="Source: U.S. Department of Education | By Rina Torchinsky", color='Institution')+
+    scale_y_continuous(labels = scales::comma,)+
+   theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 8), 
+    plot.subtitle = element_text(size=9), 
+    panel.grid.minor = element_blank()
+    )
+  
+```
+
+This stacked bar chart presents another view of how men's soccer expenses dominate Maryland's soccer expenses.It also looks like women's team expenses aren't changing too much over time. The trends leave us with a big question: what is driving  this spending gap?
+
+I don't have all of the answers, but I have some running theories and some data points I was able to scrounge from a FOIA request of NCAA Membership Financial Reporting System issued in 2022. Someone I know made this request for another project that they're working on, and I was able to take a look at some data points that might inform the gap. Of course, more data and a more specific request about expense breakdowns could provide me with some more insight here.
+
+Some notable figures I pulled from the report:
+
+*Salaries*
+--> Women's soccer salaries amount to $210,783
+--> Men's soccer salaries amount to $652,326
+
+The salary difference is pretty stark, considering the coaching staff size for each team is quite comparable. The latest EADA report shows that each team has one head coach and three assistant coaches. This seems to be a major driver of the gap.
+
+*Travel Expenses*
+--> Women's soccer travel expenses amount to $88,267. 
+--> Men's soccer travel expenses amount to $106,226.
+
+This metric covers air and ground travel, lodging and meals for preseason and regular season games. Men's soccer spent a bit more, according to he report, but this doesn't feel jarring. It's only a small difference.
+
+*Equipment Costs*
+--> Women's soccer equipment amounts to $63,235.
+--> Men's soccer equipment amounts to $68,047.
+
+This metric covers equipment, uniforms and supplies. There's a pretty small difference here, again. It's interesting that this metric is so similar.
+
+*Recruiting*
+--> Women's soccer recruiting costs amount to $7,086.
+--> Men's soccer recruiting costs amount to $6,166.
+
+This metric includes transportation, meals and lodging for prospective student-athletes and university personnel on both official and unofficial visits. This also includes charges for phone calls and postage. It's interesting to see more spent on women's soccer recruiting. 
+
+#Big Takeaway:
+Salaries are playing a big role in why there's such a great gap between Maryland men's and women's soccer. But there might be more to the story. Moving forward, I'm interested in inspecting a breakdown of expenses for both Maryland soccer teams to understand what other expenses might be playing a role here. These findings also raises some questions about coaching salaries that I'm interested in researching further. What determines coaching salaries? 
+
+
+
+
+
+
+
