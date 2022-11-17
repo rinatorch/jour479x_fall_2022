@@ -1,0 +1,91 @@
+
+
+
+```{r}
+
+library(tidyverse)
+library(usdata)
+
+```
+
+
+```{r}
+
+rosters23 <- read_csv("https://raw.githubusercontent.com/dwillis/wbb-rosters/main/rosters_2022-23.csv")
+
+
+```
+
+# Things to clean
+--> Standardize Positions (G, Guard, Guard/Forward)
+--> Extract state and standardize (TX, Texas)
+--> Drop where Name is NA
+--> Standardize Year (Fy, Freshman, Fr., Redshirt Freshman)
+--> Standardize Height (5'10" or 5-10)
+
+# Columns to add
+--> State
+--> Country
+
+```{r}
+
+rosters23 %>% distinct(hometown) %>% arrange(hometown)
+
+rosters23_clean <- rosters23 %>% 
+  mutate(hometown_clean = str_to_lower(hometown))
+
+rosters23_clean <- rosters23_clean %>% separate(hometown_clean, c("new_hometown", "state"), sep = ",", extra = "merge")
+
+#rosters23_clean <- rosters23_clean %>% separate(col=hometown_clean, into-c("new_hometown", "state"), sep = ",", extra = "merge")
+
+```
+
+```{r}
+
+rosters23_clean <- rosters23_clean %>% 
+  mutate(state = str_trim(state), state = str_replace(state, '\\.','')) %>% 
+  mutate(state = case_when(
+     is.na(abbr2state(state)) ~ state,
+     TRUE ~ str_to_lower(abbr2state(state)))
+  )
+
+
+```
+
+
+
+
+
+#clean positions
+```{r}
+
+
+rosters23_clean <- rosters23_clean %>% 
+  mutate(pos_clean = str_to_lower(str_trim(position)))
+
+rosters23_clean$pos_clean <- gsub('guard', 'g', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('wing', 'w', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('gu', 'g', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('foward', 'f', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('fwd', 'f', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('fy', 'f', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('forward', 'f', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('center', 'c', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('gaurd', 'g', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('forawrd', 'f', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub(' ', '', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('-', '/', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('forard', 'f', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('f.', 'f', rosters23_clean$pos_clean)
+rosters23_clean$pos_clean <- gsub('point', 'p', rosters23_clean$pos_clean)
+
+  
+
+rosters23_clean %>% distinct(pos_clean) %>% arrange(pos_clean)
+
+
+  
+
+```
+
+
