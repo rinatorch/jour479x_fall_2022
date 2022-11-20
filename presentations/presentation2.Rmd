@@ -1,0 +1,370 @@
+---
+title: "Maryland Sports Venues Data Exploration"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Scope
+
+I'm looking at a set of databases from the state of Maryland about sports venues. The databases I'm analyzing were last updated in 2014 and I'm working on checking to see if there is more recent data available. I'm also working on getting a better understand of the scope. As far as I can tell, this dataset only includes venues with indoor courts. It also includes some recreation centers (Leonard Hall Recreation Center) and some high schools (Dr. Henry A. Wise, Jr. High School).
+
+The site describes it, as follows:
+
+"These venues offer opportunities to participate in free and fee-based - organized and pick-up - indoor and outdoor sports and physical fitness related activities in the area of Basketball."
+
+That leaves many questions, and I'm not sure how accurate this is. I'm working on connecting with the dataset owner to better understand what is included and what is not.
+
+
+## Summarizing and exploring the data
+
+In the following code blocks, I'll begin an exploration across six sports: basketball, indoor sports, golf, soccer, skateboarding and swimming. Each of the datasets has a different number of records, but they all have the same column values: venue name, county, address, city, zip code, sport type, wesbite and geometric location. 
+
+I'll pull in county-level Census data on income, population totals, including total populations by race as well as proportions. I'll create tables and plots along the way.
+
+Let's dive in.
+
+
+```{r}
+library(tidyverse)
+library(sf)
+library(janitor)
+library(broom)
+library(ggplot2)
+library(gt)
+```
+
+
+```{r}
+bball <- st_read("basketball/SOCI_Basketball_MDSports.shp")
+
+glimpse(bball)
+
+summary(bball)
+
+```
+There are 94 basketball courts identified in this dataset. It includes columns for venue name, county, address, city, zip code, sport type, wesbite and geometric location. Let's take a closer look at the count per county. 
+
+
+```{r}
+
+bball_counties <- bball%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  arrange(desc(venue_count))%>%
+  mutate(County = str_to_lower(County))
+
+
+bball_counties %>% gt()%>%
+  cols_hide(columns = c(geometry))%>%
+  cols_label(
+    County = "Jurisdiction",
+    venue_count = "Number of Basketball Courts"
+  )%>%
+  tab_header(
+    title = "Frederick County is filled with basketball courts"
+  )
+  
+```
+
+
+
+```{r}
+#And a quick plot, too.
+bball %>%
+  ggplot() +
+  geom_sf() +
+  theme_minimal()
+```
+I'm still working on figuring out how to get a base map in here, so we can actually see the jurisdiction in which the dots fall. But for now, here's a bit of an abstract look. We know what the state of Maryland looks like, so we're definitely seeing a lot in the broad D.C area.
+
+Next, I tried to figure how I could pull Census data in.
+
+```{r}
+
+library(tidycensus)
+census_api_key("0f4adff4206717d4947de6eb32d22e0b484ae6b8", install = TRUE, overwrite = TRUE)
+
+#I used this to explore variables of interest.
+vars <- load_variables(2010, "acs5", cache = TRUE)
+
+#To get the ball rolling, I added in median household income, total population, white population and Black or African American population. I can calculate some percenatges with these figures. I'm definitely interested in incorporating more variables, but this is just a starting point.
+md_income <- get_acs(geography = "county", 
+              variables = c(median_income = "B19013_001"), 
+              state = "MD", 
+              year = 2010) %>%
+              mutate(county_clean = str_to_lower(NAME))
+
+#I started to work on some data cleaning so I could join the basketball county dataframe with the income dataframe.
+md_income_clean <- md_income %>% separate(county_clean, c("County", "state"), sep = " c", extra = "merge")
+
+
+#Here is where I joined it.
+md_bball_income_county <- inner_join(md_income_clean, bball_counties)%>%
+  select(County, venue_count, estimate)%>%
+  arrange(desc(venue_count))
+
+
+```
+
+Let's try an income plot.
+```{r}
+ggplot() + geom_point(data=md_bball_income_county, aes(x=venue_count, y=estimate)) +
+  geom_smooth(data=md_bball_income_county, aes(x=venue_count, y=estimate), method="lm")
+```
+We're seeing wealthier counties having more venues. This is interesting, but definitely begs a narrower approach into a deeper, narrower level.
+
+
+Now, let's take a look at population metrics.
+```{r}
+
+
+md_race_pct <- get_acs(geography = "county", 
+              variables = c(black_pop = "B02001_003", total_pop = "B01003_001", white_pop = "B02001_002"), 
+              state = "MD", 
+              year = 2010)%>%
+              select(GEOID, NAME, variable, estimate)
+
+md_race_wider <- md_race_pct%>%
+  pivot_wider(names_from = variable, values_from = estimate)%>%
+  mutate(pct_black = black_pop/total_pop)%>%
+  mutate(pct_white = white_pop/total_pop)%>%
+  mutate(county_clean = str_to_lower(NAME))
+
+md_pop_clean <-md_race_wider%>%
+  separate(county_clean, c("County", "state"), sep = " c", extra = "merge")
+
+md_bball_pop_county <- inner_join(md_pop_clean, bball_counties)%>%
+  select(County, venue_count, total_pop, black_pop, pct_black, white_pop, pct_white)%>%
+  mutate(per_pop = venue_count/total_pop)%>%
+  arrange(desc(per_pop))
+
+
+```
+Here, we calculated two new metrics: the percent of a jurisdiction's population that is Black and the number of basketball venues per jurisdiction. It was interesting to see Somerset, Kent, Frederick, Garrett and Caroline up there. These counties have smaller populations, so these numbers are definitely inflated. Garrett has a single basketball venue listed, but is in the top. These numbers, of course, are not telling the full story. Frederick's repeated appearance toward the top could be notable, though.
+
+We can plot it, too. When we do, we see an interesting line here. More venues, more population. This is not shocking.
+
+```{r}
+ggplot() + geom_point(data=md_bball_pop_county, aes(x=venue_count, y=total_pop)) +
+  geom_smooth(data=md_bball_pop_county, aes(x=venue_count, y=total_pop), method="lm")
+```
+
+
+Let's try to replicate some similar analyses over a couple of other sports. First, here's an indoor sports dataframe. This was kind of interesting. It's a pretty broad category. It includes tennis bubbles, volleyball arenas, soccer dome and some venues that seem to be catch-alls. 
+
+```{r}
+
+indoor_sports <- st_read("indoor_sports/SOCI_IndoorSports_MDSports.shp")
+
+summary(indoor_sports)
+glimpse(indoor_sports)
+
+isports_counties <- indoor_sports%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  arrange(desc(venue_count))%>%
+  mutate(County = str_to_lower(County))
+
+head(isports_counties)
+```
+There are 40 venues in this dataframe. Anne Arundel County has the most indoor sports venues, followed by Baltimore County, Baltimore City and then Montgomery and Prince George's counties.
+
+Next, I wanted to join with some income data.
+
+```{r}
+#Here is where I joined it.
+md_income_isports_county <- inner_join(md_income_clean, isports_counties )%>%
+  select(County, venue_count, estimate)%>%
+  arrange(desc(venue_count))
+
+ggplot() + geom_point(data=md_income_isports_county, aes(x=venue_count, y=estimate)) +
+  geom_smooth(data=md_income_isports_county, aes(x=venue_count, y=estimate), method="lm")
+
+
+```
+That's a pretty weak line! This is also a funky category. 
+
+I think it's best we shift over to golf.
+
+```{r}
+
+golf <- st_read("golf/SOCI_Golf_MDSports.shp")
+
+summary(golf)
+glimpse(golf)
+
+golf_counties <- golf%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  arrange(desc(venue_count))%>%
+  mutate(County = str_to_lower(County))
+
+head(golf_counties)
+
+```
+There are 179 golf venues in this dataframe. Montgomery County is leading with the highest number of golf courses. Let's bring in some demographic information.
+
+```{r}
+
+md_golf_income_county <- inner_join(md_income_clean, golf_counties )%>%
+  select(County, venue_count, estimate)%>%
+  arrange(desc(venue_count))
+
+
+```
+
+Montgomery County is a wealthier county and also has the highest number of golf courses.
+
+```{r}
+
+ggplot() + geom_point(data=md_golf_income_county, aes(x=venue_count, y=estimate)) +
+  geom_smooth(data=md_golf_income_county, aes(x=venue_count, y=estimate), method="lm")
+```
+More golf courses could be associated a bit with higher income. Let's check out race.
+
+
+```{r}
+md_golf_pop_county <- inner_join(md_pop_clean, golf_counties)%>%
+  select(County, venue_count, total_pop, black_pop, pct_black, white_pop, pct_white)%>%
+  mutate(per_pop = venue_count/total_pop)
+
+
+ggplot() + geom_point(data=md_golf_pop_county, aes(x=venue_count, y=pct_white)) +
+  geom_smooth(data=md_golf_pop_county, aes(x=venue_count, y=pct_white), method="lm")
+
+```
+Hmm. I feel like there's a need to go deeper than the county level. I wonder about the demographics of the Census tract of each golf course. 
+
+Let's check out a few other sports and income levels.
+
+```{r}
+
+skateboarding <- st_read("skateboarding/SOCI_Skateboarding_MDSports.shp")
+
+summary(skateboarding)
+
+skateboarding_counties <- skateboarding%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  arrange(desc(venue_count))%>%
+  mutate(County = str_to_lower(County))
+
+head(skateboarding_counties)
+  
+
+```
+Hmm, I'm not sure there is enough data here to make any major takeaways. We're looking at the normal categories, but there are only 22 skateboarding venues included.
+
+
+Let's shift to soccer.
+
+```{r}
+soccer <- st_read("soccer/SOCI_Soccer_MDSports.shp")
+glimpse(soccer)
+summary(soccer)
+
+
+soccer_counties <- soccer%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  mutate(County = str_to_lower(County))%>%
+  arrange(desc(venue_count))
+
+head(soccer_counties)
+```
+Excellent. We're looking at 125 venues. Frederick has the most soccer venues. Let's pull in income.
+
+```{r}
+
+md_soccer_income_county <- inner_join(md_income_clean, soccer_counties)%>%
+  select(County, venue_count, estimate)%>%
+  arrange(desc(venue_count))
+
+ggplot() + geom_point(data=md_soccer_income_county, aes(x=venue_count, y=estimate)) +
+  geom_smooth(data=md_soccer_income_county, aes(x=venue_count, y=estimate), method="lm")
+
+
+```
+We're seeing more soccer venues in wealthier counties. This could be an interesting finding to dig into. Let's peek at swimming.
+
+
+```{r}
+swimming <- st_read("swimming/SOCI_Swimming_MDSports.shp")
+glimpse(swimming)
+summary(swimming)
+
+swim_counties <- swimming%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  mutate(County = str_to_lower(County))%>%
+  arrange(desc(venue_count))
+
+head(swim_counties)
+```
+Baltimore County and Baltimore City lead in swimming venues. There are 82 swimming venues in this dataframe.
+
+Let's bring in income level.
+
+```{r}
+
+md_swim_income_county <- inner_join(md_income_clean, swim_counties)%>%
+  select(County, venue_count, estimate)%>%
+  arrange(desc(venue_count))
+
+ggplot() + geom_point(data=md_swim_income_county, aes(x=venue_count, y=estimate)) +
+  geom_smooth(data=md_swim_income_county, aes(x=venue_count, y=estimate), method="lm")
+
+
+```
+We're not seeing an income correlation on swimming.
+
+
+To recap, we've seen a couple of interesting findings.
+--> Wealthier counties have more basketball venues.
+--> Wealthier counties have more soccer venues.
+--> Wealthier counties have more golf venues.
+
+If we were to plot all of the venues I looked at in this study, it would look like this.
+```{r}
+
+ggplot() + 
+  geom_sf(data = bball, fill = "orange", color = "orange") +
+  geom_sf(data = swimming, fill = "blue", color = "blue") +
+  geom_sf(data = soccer, fill = "black", color = "black") +
+  geom_sf(data = golf, fill = "green", color = "green") +
+  geom_sf(data = skateboarding, fill = "purple", color = "purple")+
+  geom_sf(data = indoor_sports, fill = "gray", color = "gray")+
+  theme_minimal()+
+  ggtitle("Selected Maryland Sports Venues") + 
+  coord_sf()
+
+```
+
+Concerns, takeaways and next steps:
+
+--> The data I'm working with is imperfect. This is one of my biggest concern. It's hard to tell what's in here and what's not. The data I'm working with is also older than I would like. I'm working on connecting with the dataset owner to better understand it. But I also wonder how valuable this data is to an analysis in the first place. Maybe some datasets are better than others? For example, maybe the golf dataset is the most all-encompassing and the only one worth moving forward with?
+
+--> I've got to dig deeper than county. County is good for zooming out, but I've got to zoom in next. I'm curious about what's going on at the Census tract level. I'm not sure exactly how to do that, but I think tidycensus could give me the tool to move forward with a tract-level analysis.
+
+--> I'm interested in exploring more sports. There's a big collection of datasets for different sports. I want to explore more sports next. Looping in ice hockey, football and baseball could be one of my next steps.
+
+--> I've been thinking a lot about joining the sports dataframes, but I think we might encounter some repeats. I've held off so far, but I'm considering exploring this decision more in the future.
+
+--> I also want to pull in more variables from the Census. I only pulled in a few variables in this analysis, but I think it would be interesting to inspect how population age, gender or education could play into any of this.
+
+--> I feel like I'm missing GIS expertise that could help me get in a base map. I used the .shp to figure out how I could analyze by county, but my research online suggests there's more I could do with the data from the state. 
+
+
+
+
+
+
