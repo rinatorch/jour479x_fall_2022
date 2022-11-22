@@ -113,6 +113,51 @@ wbb <- wbb %>%
 
 
 ```
+#High schools to previous schools
+
+```{r}
+
+hs_wbb <- wbb %>%
+  filter(is.na(high_school))%>%
+  filter(!is.na(previous_school))%>%
+  filter(str_detect(previous_school, "HS"))%>%
+  mutate(hs_clean = "")%>%
+  mutate(hs_clean = previous_school)%>%
+  mutate(type = "has hs")
+
+
+extras_wbb <- wbb %>%
+  filter(!is.na(high_school))%>%
+  filter(is.na(previous_school))%>%
+  #filter(!str_detect(previous_school, "HS"))%>%
+  #filter(!str_detect(previous_school, "HS"))%>%
+  mutate(hs_clean = "")%>%
+  mutate(type = "no hs")
+
+all_wbb <- bind_rows(hs_wbb, extras_wbb)
+
+#we should be able to bind rows because these dfs should be at odds with each other, and we just want to stack them on top of each other
+
+```
+
+
+#A case when approach to high schools
+```{r}
+list=as.list(hs_wbb$previous_school)
+
+wbb <- wbb %>%
+  mutate(hs_clean = "")%>%
+  case_when(
+    is.na(high_school) && previous_school %in% list ~
+    mutate(hs_clean = high_school))
+
+
+
+if previous school is in the list and high school is NA
+  put previous school in high school 
+
+```
+
 
 
 
