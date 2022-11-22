@@ -11,7 +11,7 @@ library(usdata)
 
 ```{r}
 
-rosters23 <- read_csv("https://raw.githubusercontent.com/dwillis/wbb-rosters/main/rosters_2022-23.csv")
+rosters23 <- read_csv("https://github.com/dwillis/wbb-rosters/raw/main/rosters_2022-23.csv")
 
 
 ```
@@ -87,5 +87,35 @@ rosters23_clean %>% distinct(pos_clean) %>% arrange(pos_clean)
   
 
 ```
+
+
+##Clean Year 
+
+```{r}
+
+rosters23 %>%  
+  group_by(year) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n))
+
+```
+
+```{r}
+wbb <- read_csv("https://github.com/dwillis/wbb-rosters/raw/main/rosters_2022-23.csv")
+```
+
+```{r}
+years_cleaned <- read_csv("years_cleaned.csv")
+wbb <- inner_join(wbb, years_cleaned)
+wbb <- wbb %>%
+  select(-count)
+
+
+
+```
+
+
+
+
 
 
