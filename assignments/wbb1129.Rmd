@@ -216,7 +216,7 @@ ggplot() +
   geom_bar(data=year, 
   aes(x=reorder(year_clean, -count), weight=count, fill=year_clean))+
   scale_y_continuous(labels=comma)+
-  labs(title="More than 3,000 college women's basketball players are freshmen", caption="Source: NCAA", x = "Position", y= "Count of players") + 
+  labs(title="More than 3,000 college women's basketball players are freshmen", caption="Note: There are two sixth year players. | Source: NCAA", x = "Position", y= "Count of players") + 
   theme_minimal() + 
   theme(
     plot.title = element_text(size = 12, face = "bold"),
