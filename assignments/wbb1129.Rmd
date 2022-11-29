@@ -190,7 +190,7 @@ states <- wbb_rosters23%>%
 
 ggplot() + 
   geom_bar(data=states, 
-  aes(x=reorder(pm.state, count), weight=count, fill = "red")) +
+  aes(x=reorder(pm.state, count), weight=count, fill = pm.state)) +
   coord_flip()+
   labs(title="Top ten states where women's college basketball players come from", subtitle="More than 800 college women's basketball players hail from Pennsylvania.", caption="Source: NCAA", x = "State", y= "Count of players") + 
   theme_minimal() + 
@@ -214,7 +214,7 @@ year <- wbb_rosters23%>%
 
 ggplot() + 
   geom_bar(data=year, 
-  aes(x=reorder(year_clean, -count), weight=count, fill="red"))+
+  aes(x=reorder(year_clean, -count), weight=count, fill=year_clean))+
   scale_y_continuous(labels=comma)+
   labs(title="More than 3,000 college women's basketball players are freshmen", caption="Source: NCAA", x = "Position", y= "Count of players") + 
   theme_minimal() + 
@@ -241,7 +241,7 @@ positions$position_full = str_to_title(positions$position_full)
 
 ggplot() + 
   geom_bar(data=positions, 
-  aes(x=reorder(position_full, count), weight=count, fill="red"))+
+  aes(x=reorder(position_full, count), weight=count, fill=position_full))+
   scale_y_continuous(labels=comma)+
   labs(title="The bulk of college women's basketball players are guards", caption="Source: NCAA", x = "Position", y= "Count of players") + 
   coord_flip()+
