@@ -4,6 +4,7 @@ library(postmastr)
 library(usdata)
 library(ggplot2)
 library(scales)
+library(stringr)
 ```
 
 ```{r}
@@ -229,11 +230,14 @@ ggplot() +
 ```{r}
 
 
+
 positions <- wbb_rosters23%>%
   group_by(position_full)%>%
   summarise(count = n())%>%
   arrange(desc(count))
 
+
+positions$position_full = str_to_title(positions$position_full)
 
 ggplot() + 
   geom_bar(data=positions, 
