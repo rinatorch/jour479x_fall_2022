@@ -73,8 +73,10 @@ leaflet() %>%
     options = layersControlOptions(collapsed = FALSE)
   )
   
+```
  
-
+ 
+```{r}
 md_income <- get_acs(geography = "county", 
                      variables = "B19013_001", 
                      state = "MD",
@@ -109,4 +111,134 @@ md_income%>%
         opacity = 0.6)
   
 ```
+
+
+
+```{r}
+
+md_income <- get_acs(geography = "county", 
+                     variables = "B19013_001", 
+                     state = "MD",
+                     geometry = TRUE)
+
+md_pop <- get_acs(geography = "county", 
+                     variables = "B01003_001", 
+                     state = "MD",
+                     geometry = TRUE)
+
+md <- get_acs(geography = "county", 
+                     state = "MD",
+                     geometry = TRUE)
+
+md_black_pop <- get_acs(geography = "county", 
+                     variables = "B02001_003", 
+                     state = "MD",
+                     geometry = TRUE)
+
+
+md_white_pop <- get_acs(geography = "county", 
+                     variables = "B02001_002", 
+                     state = "MD",
+                     geometry = TRUE)
+
+pal <- colorQuantile(palette = "YlOrRd", domain = md_income$estimate, n = 10)
+
+pal2 <- colorQuantile(palette = "YlOrRd", domain = md_pop$estimate, n = 10)
+
+pal3 <- colorQuantile(palette = "YlOrRd", domain = md_black_pop$estimate, n = 10)
+
+pal4 <- colorQuantile(palette = "YlOrRd", domain = md_white_pop$estimate, n = 10)
+
+mypalette <- colorNumeric( palette="viridis", md_income$estimate, na.color="transparent")
+mypalette_pop <- colorNumeric( palette="viridis", md_pop$estimate)
+
+
+# Basic choropleth with leaflet?
+m <- leaflet(md_shp) %>% 
+  addPolygons( fillColor = ~mypalette(estimate), stroke=FALSE, group="Income" )%>%
+  addPolygons( fillColor = ~mypalette_pop(estimate), stroke=FALSE, group="Population" )%>%
+   addCircleMarkers(
+    data=swimming,
+    color="blue",
+    radius=2,
+    group="Swimming")%>%
+  addCircleMarkers(
+    data=soccer,
+    color="black",
+    radius=2,
+    group="Soccer")%>%
+  addLayersControl(
+    baseGroups = c("Income", "Population"),
+    overlayGroups = c("Swimming", "Soccer"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+
+m
+
+
+
+```
+
+
+```{r}
+
+
+md_shp <- st_read("https://raw.githubusercontent.com/frankrowe/maryland-geojson/master/maryland.geojson")
+
+md_map_all <- leaflet()%>%
+  addProviderTiles(providers$CartoDB.Positron)%>%
+  addPolylines(
+    data=md_shp,
+    weight=2,
+    color="gray"
+  )%>%
+  addPolygons(data = md_income, group="Population", color = ~ pal(estimate), stroke = FALSE)%>%
+  addPolygons(data = md_pop, group = "Income", color = ~ pal2(estimate), stroke = FALSE)%>%
+  addPolygons(data = md_pop, group = "Black Population", color = ~ pal3(estimate), stroke = FALSE)%>%
+   addPolygons(data = md_pop, group = "White Population", color = ~ pal4(estimate), stroke = FALSE)%>%
+   addCircleMarkers(
+    data=bball,
+    color="orange",
+    radius=2,
+    group="Basketball")%>%
+  addCircleMarkers(
+    data=golf,
+    color="green",
+    radius=2,
+    group="Golf")%>%
+  addCircleMarkers(
+    data=skateboarding,
+    color="purple",
+    radius=2,
+    group="Skateboarding")%>%
+  addCircleMarkers(
+    data=soccer,
+    color="black",
+    radius=2,
+    group="Soccer")%>%
+  addCircleMarkers(
+    data=swimming,
+    color="blue",
+    radius=2,
+    group="Swimming")%>%
+  addLayersControl(
+  baseGroups = c("Income", "Population", "Black Population", "White Population"),
+  overlayGroups = c("Golf", "Basketball", "Soccer", "Swimming", "Skateboarding"),
+  options = layersControlOptions(collapsed = FALSE))
+ 
+ 
+  
+  
+
+md_map_all
+
+
+```
+
+
+
+
+
+
+
 
