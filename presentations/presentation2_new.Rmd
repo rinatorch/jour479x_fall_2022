@@ -1,0 +1,112 @@
+---
+title: "Maryland Sports Venues Data Exploration"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(sf)
+library(janitor)
+library(broom)
+library(ggplot2)
+library(gt)
+library(leaflet)
+```
+
+
+```{r}
+bball <- st_read("basketball/SOCI_Basketball_MDSports.shp")
+
+golf <- st_read("golf/SOCI_Golf_MDSports.shp")
+
+skateboarding <- st_read("skateboarding/SOCI_Skateboarding_MDSports.shp")
+
+soccer <- st_read("soccer/SOCI_Soccer_MDSports.shp")
+
+swimming <- st_read("swimming/SOCI_Swimming_MDSports.shp")
+
+library(tidycensus)
+census_api_key("0f4adff4206717d4947de6eb32d22e0b484ae6b8", install = TRUE, overwrite = TRUE)
+
+#I used this to explore variables of interest.
+vars <- load_variables(2010, "acs5", cache = TRUE)
+
+#To get the ball rolling, I added in median household income, total population, white population and Black or African American population. I can calculate some percenatges with these figures. I'm definitely interested in incorporating more variables, but this is just a starting point.
+
+
+
+
+
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addCircleMarkers(
+    data=bball,
+    color="orange",
+    radius=2,
+    group="Basketball")%>%
+  addCircleMarkers(
+    data=golf,
+    color="green",
+    radius=2,
+    group="Golf")%>%
+  addCircleMarkers(
+    data=skateboarding,
+    color="purple",
+    radius=2,
+    group="Skateboarding")%>%
+  addCircleMarkers(
+    data=soccer,
+    color="black",
+    radius=2,
+    group="Soccer")%>%
+  addCircleMarkers(
+    data=swimming,
+    color="blue",
+    radius=2,
+    group="Swimming")%>%
+  addLayersControl(
+    overlayGroups = c("Golf", "Basketball", "Soccer", "Swimming", "Skateboarding"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+  
+ 
+
+md_income <- get_acs(geography = "county", 
+                     variables = "B19013_001", 
+                     state = "MD",
+                     geometry = TRUE)
+
+
+pal <- colorQuantile(palette = "YlOrRd", domain = md_income$estimate, n = 10)
+
+md_income%>% 
+  st_transform(crs = "+init=epsg:4326") %>%
+    leaflet(width = "100%") %>%
+  addPolygons(
+    popup = ~ str_extract(NAME, "^([^,]*)"),
+     stroke = FALSE,
+      smoothFactor = 0,
+      fillOpacity = 0.7,
+      color = ~ pal(estimate)) %>%
+  addCircleMarkers(
+    data=swimming,
+    color="blue",
+    radius=2,
+    group="Swimming")%>%
+   addLayersControl(
+    overlayGroups = c("Swimming"),
+    options = layersControlOptions(collapsed = FALSE)
+  )%>%
+  
+  addLegend("bottomleft", 
+        pal = pal, 
+        values = ~ estimate,
+        title = "Income Levels",
+        opacity = 0.6)
+  
+```
+
