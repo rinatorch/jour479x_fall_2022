@@ -121,6 +121,12 @@ md_income <- get_acs(geography = "county",
                      state = "MD",
                      geometry = TRUE)
 
+
+md_income_tract <- get_acs(geography = "tract", 
+                     variables = "B19013_001", 
+                     state = "MD",
+                     geometry = TRUE)
+
 md_pop <- get_acs(geography = "county", 
                      variables = "B01003_001", 
                      state = "MD",
@@ -148,6 +154,10 @@ pal2 <- colorQuantile(palette = "YlOrRd", domain = md_pop$estimate, n = 10)
 pal3 <- colorQuantile(palette = "YlOrRd", domain = md_black_pop$estimate, n = 10)
 
 pal4 <- colorQuantile(palette = "YlOrRd", domain = md_white_pop$estimate, n = 10)
+
+pal5 <- colorQuantile(palette = "BuPu", domain = md_income_tract$estimate, n = 10)
+
+pal6 <- colorQuantile(palette = "BuPu", domain = md_black_pop_tract$estimate, n = 10)
 
 mypalette <- colorNumeric( palette="viridis", md_income$estimate, na.color="transparent")
 mypalette_pop <- colorNumeric( palette="viridis", md_pop$estimate)
@@ -196,6 +206,8 @@ md_map_all <- leaflet()%>%
   addPolygons(data = md_pop, group = "Income", color = ~ pal2(estimate), stroke = FALSE)%>%
   addPolygons(data = md_pop, group = "Black Population", color = ~ pal3(estimate), stroke = FALSE)%>%
    addPolygons(data = md_pop, group = "White Population", color = ~ pal4(estimate), stroke = FALSE)%>%
+  addPolygons(data = md_income_tract, group = "Income by Tract", color = ~ pal5(estimate), stroke = FALSE)%>%
+  addPolygons(data = md_black_pop_tract, group = "Black Population by Tract", color = ~ pal6(estimate), stroke = FALSE)%>%
    addCircleMarkers(
     data=bball,
     color="orange",
@@ -222,7 +234,7 @@ md_map_all <- leaflet()%>%
     radius=2,
     group="Swimming")%>%
   addLayersControl(
-  baseGroups = c("Income", "Population", "Black Population", "White Population"),
+  baseGroups = c("Income", "Income by Tract", "Black Population by Tract", "Population", "Black Population", "White Population"),
   overlayGroups = c("Golf", "Basketball", "Soccer", "Swimming", "Skateboarding"),
   options = layersControlOptions(collapsed = FALSE))
  
@@ -235,8 +247,30 @@ md_map_all
 
 ```
 
+#exploring race by tract
+```{r}
+
+md_black_pop_tract <- get_acs(geography = "tract", 
+              variables = "B02001_003", 
+              state = "MD", 
+              geometry = TRUE)
+md_race_pct
+
+md_race_wider <- md_race_pct %>%
+  pivot_wider(names_from = "variable", values_from = "estimate")%>%
+  distinct(GEOID, black_pop, total_pop)
+  mutate(pct_black = black_pop/total_pop)%>%
+  mutate(pct_white = white_pop/total_pop)%>%
+  mutate(county_clean = str_to_lower(NAME))%>%
+  group_by(GEOID)%>%
+  summarize(sum)
+  
+
+md_pop_clean <-md_race_wider%>%
+  separate(county_clean, c("County", "state"), sep = " c", extra = "merge")
 
 
+```
 
 
 
