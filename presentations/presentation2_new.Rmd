@@ -15,8 +15,13 @@ library(broom)
 library(ggplot2)
 library(gt)
 library(leaflet)
+library(dplyr)
+library(readxl)
+library(shinydashboard)
+library(rgdal)
+library(htmltools)
 ```
-
+#load sports dataframes
 
 ```{r}
 bball <- st_read("basketball/SOCI_Basketball_MDSports.shp")
@@ -29,6 +34,13 @@ soccer <- st_read("soccer/SOCI_Soccer_MDSports.shp")
 
 swimming <- st_read("swimming/SOCI_Swimming_MDSports.shp")
 
+indoor_sports <- st_read("indoor_sports/SOCI_IndoorSports_MDSports.shp")
+
+roller_sports <- st_read("roller_sports/SOCI_RollerSports_MDSports.shp")
+```
+
+#load in census stuff
+```{r}
 library(tidycensus)
 census_api_key("0f4adff4206717d4947de6eb32d22e0b484ae6b8", install = TRUE, overwrite = TRUE)
 
@@ -132,9 +144,6 @@ md_pop <- get_acs(geography = "county",
                      state = "MD",
                      geometry = TRUE)
 
-md <- get_acs(geography = "county", 
-                     state = "MD",
-                     geometry = TRUE)
 
 md_black_pop <- get_acs(geography = "county", 
                      variables = "B02001_003", 
@@ -165,8 +174,8 @@ mypalette_pop <- colorNumeric( palette="viridis", md_pop$estimate)
 
 # Basic choropleth with leaflet?
 m <- leaflet(md_shp) %>% 
-  addPolygons( fillColor = ~mypalette(estimate), stroke=FALSE, group="Income" )%>%
-  addPolygons( fillColor = ~mypalette_pop(estimate), stroke=FALSE, group="Population" )%>%
+  addPolygons( fillColor = ~pal5(estimate), stroke=FALSE, group="Income" )%>%
+  addPolygons( fillColor = ~pal2(estimate), stroke=FALSE, group="Population" )%>%
    addCircleMarkers(
     data=swimming,
     color="blue",
@@ -233,13 +242,24 @@ md_map_all <- leaflet()%>%
     color="blue",
     radius=2,
     group="Swimming")%>%
+  addCircleMarkers(
+    data=indoor_sports,
+    color="brown",
+    radius=2,
+    group="Indoor Sports"
+  )%>%
+  addCircleMarkers(
+    data=roller_sports,
+    color="light blue",
+    radius=2,
+    group="Roller Sports"
+  )%>%
   addLayersControl(
   baseGroups = c("Income", "Income by Tract", "Black Population by Tract", "Population", "Black Population", "White Population"),
-  overlayGroups = c("Golf", "Basketball", "Soccer", "Swimming", "Skateboarding"),
+  overlayGroups = c("Golf", "Basketball", "Soccer", "Swimming", "Skateboarding", "Indoor Sports", "Roller Sports"),
   options = layersControlOptions(collapsed = FALSE))
  
  
-  
   
 
 md_map_all
@@ -271,6 +291,265 @@ md_pop_clean <-md_race_wider%>%
 
 
 ```
+
+#trying to spatial join
+
+```{r}
+ggplot() +
+  geom_sf(data=md_income_tract, aes(fill=estimate))+
+  geom_sf(data=golf)
+  
+bball_locs <- bball %>%
+  st_as_sf()
+
+tract_income_bball <- bball_locs %>%
+  st_join(md_income_tract)
+
+tract_county_income <- bball_locs %>%
+  st_join(md_income)
+
+schools_homicides <- washington_schools %>%
+  st_join(washington_homicides, left="FALSE")
+
+
+bball_coords <- bball %>% 
+  filter(is.na(Xcoordinat) == F & is.na(Ycoordinat) == F) %>% 
+  st_as_sf(coords = c("Xcoordinat", "Ycoordinate"))
+class(bball)
+
+example = sf::st_as_sf(example, wkt = "geometry")
+
+bball_point <- st_point(bball)
+
+
+
+st_set_crs(md_income_tract, 4269)
+
+md_income_tract <- st_set_crs(md_income_tract, 4269)
+
+st_crs(md_income_tract) <- 4269 
+
+tract_income_bball <- bball %>%
+  st_join(md_income_tract)
+
+
+
+
+library(tidyverse) 
+library(tigris) 
+library(sf)
+md <- tracts("MD")
+md <- st_as_sf(md) %>% st_set_crs(4269)
+ball <- st_read(system.file("basketball/SOCI_Basketball_MDSports.shp", package = 'sf')) %>%
+  st_transform(4269)
+st_intersects(bball, md)
+```
+
+
+```{r}
+
+md_shp <- st_read("https://raw.githubusercontent.com/frankrowe/maryland-geojson/master/maryland.geojson")
+
+
+md_income_tract <- get_acs(geography = "tract", 
+                     variables = "B19013_001", 
+                     state = "MD",
+                     geometry = TRUE)
+
+map <- leaflet()%>%
+  addProviderTiles(providers$CartoDB.Positron)%>%
+  addPolylines(
+    data=md_shp,
+    weight=2,
+    color="gray"
+  )%>%
+  addPolygons(data = md_income_tract, group = "Income by Tract", color = ~ pal5(estimate), stroke = FALSE)%>%
+  addPolygons(data = md_black_pop_tract, group = "Black Population by Tract", color = ~ pal6(estimate), stroke = FALSE)%>%
+  baseGroups = c("Income by Tract", "Black Population by Tract")
+
+
+
+
+
+```
+```{r}
+
+
+
+
+```
+
+
+
+
+```{r}
+
+pal5 <- colorQuantile(palette = "BuPu", domain = md_income_tract$estimate, n = 10)
+
+pal6 <- colorQuantile(palette = "BuPu", domain = md_black_pop_tract$estimate, n = 10)
+
+numPal <- colorNumeric('viridis', md_income_tract$estimate)
+
+quantPal <- colorQuantile('viridis', md_income_tract$estimate, n = 5)
+
+pal <- colorQuantile(
+  palette = "viridis",
+  domain = md_income_tract$estimate, n=8, na.color = NA)
+
+mypal <- colorQuantile(
+  palette = "viridis",
+  domain = md_black_pop_tract$estimate, n=8, na.color = NA)
+
+```
+
+```{r}
+md_map_all <- 
+  leaflet()%>%
+  addProviderTiles(providers$CartoDB.Positron)%>%
+  addPolylines(
+    data=md_shp,
+    weight=2,
+    color="gray"
+  )%>%
+  addPolygons(data = md_income_tract, group = "Income by Tract", color = ~ pal(estimate), stroke = FALSE)%>%
+  addPolygons(data = md_black_pop_tract, group = "Black Population by Tract", color = ~ mypal(estimate), stroke = FALSE)%>%
+  addLegend("bottomleft", pal = pal, values = md_income_tract$estimate, title = "Income Quantiles")%>%
+  addLegend("bottomleft", pal = mypal, values = md_black_pop_tract$estimate, title = "Black Population Quantiles")%>%
+  addCircleMarkers(
+    data=bball,
+    color="orange",
+    radius=2,
+    group="Basketball")%>%
+  addCircleMarkers(
+    data=golf,
+    color="green",
+    radius=2,
+    group="Golf")%>%
+  addCircleMarkers(
+    data=skateboarding,
+    color="purple",
+    radius=2,
+    group="Skateboarding")%>%
+  addCircleMarkers(
+    data=soccer,
+    color="black",
+    radius=2,
+    group="Soccer")%>%
+  addCircleMarkers(
+    data=swimming,
+    color="blue",
+    radius=2,
+    group="Swimming")%>%
+   addLayersControl(
+  overlayGroups = c("Golf", "Basketball", "Soccer", "Swimming", "Skateboarding"),
+     baseGroups = c("Income by Tract", "Black Population by Tract"),
+  options = layersControlOptions(collapsed = FALSE)) 
+  
+md_map_all
+  
+```
+#Spatial Joining
+```{r}
+
+
+bball_st <- st_transform(bball, 4269)
+
+tract_income_bball <- bball_st %>%
+  st_join(md_income_tract)
+
+bball_analysis <- tract_income_bball %>%
+  group_by(NAME)%>%
+  summarize(count= n())
+
+
+```
+
+
+```{r}
+
+golf_st <- st_transform(golf, 4269)
+
+tract_income_golf <- golf_st %>%
+  st_join(md_income_tract)
+
+golf_analysis <- tract_income_golf %>%
+  group_by(GEOID)%>%
+  summarize(count= n())
+
+
+```
+
+```{r}
+
+soccer_st <- st_transform(soccer, 4269)
+
+swimming_st <- st_transform(swimming, 4269)
+
+roller_st <- st_transform(roller_sports, 4269)
+
+```
+
+
+
+
+
+#binning
+```{r}
+
+md_income_tract_binned <- md_income_tract %>% mutate(new_bin = ntile(estimate, n=5))
+
+golf_join <- inner_join(golf_analysis, md_income_tract_binned)
+
+md_income_tract_golf_bins <- golf_st %>%
+  st_join(md_income_tract_binned)%>%
+  group_by(new_bin)%>%
+  summarize(count = n())
+
+
+md_income_tract_bball_bins <- bball_st %>%
+  st_join(md_income_tract_binned)%>%
+  group_by(new_bin)%>%
+  summarize(count = n())
+
+md_income_tract_soccer_bins <- soccer_st %>%
+  st_join(md_income_tract_binned)%>%
+  group_by(new_bin)%>%
+  summarize(count = n())
+
+md_income_tract_swim_bins <- swimming_st %>%
+  st_join(md_income_tract_binned)%>%
+  group_by(new_bin)%>%
+  summarize(count = n())
+
+
+md_income_tract_roller_bins <- roller_st %>%
+  st_join(md_income_tract_binned)%>%
+  group_by(new_bin)%>%
+  summarize(count = n())
+
+golf_vis <- + ggplot(data=md_income_tract_golf_bins, aes(x=new_bin, y=count)) +
+    geom_bar(stat="identity", fill="lightblue") +
+    labs(title="Golf courses are concentrated in wealthy Maryland areas", caption="By Rina Torchinsky")  + theme_minimal() + 
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title = element_text(size = 8), 
+    plot.subtitle = element_text(size=10), 
+    panel.grid.minor = element_blank()
+    )
+
+perf <-ggplot(data=md_income_tract_golf_bins, aes(x=new_bin, y=count))+
+  geom_bar(stat="identity",fill="#5a9e4b")+
+  labs(title="Golf courses are concentrated in wealthy Maryland areas", caption="By Rina Torchinsky")  + theme_minimal() + 
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title = element_text(size = 8), 
+    plot.subtitle = element_text(size=10), 
+    panel.grid.minor = element_blank()
+    )
+
+perf
+```
+  
 
 
 

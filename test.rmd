@@ -1,0 +1,182 @@
+
+##challenges:
+--> getting the legend working in quantiles or similar. just not percents. (check mark)
+--> maybe getting multiple legends (check mark)
+--> spatial join!
+
+
+
+---
+title: "Maryland Sports Venues Data Exploration"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(sf)
+library(janitor)
+library(broom)
+library(ggplot2)
+library(gt)
+library(leaflet)
+library(dplyr)
+library(readxl)
+library(shinydashboard)
+library(rgdal)
+library(htmltools)
+library(leaflegend)
+```
+
+
+```{r}
+
+library(dplyr)
+library(readxl)
+library(shinydashboard)
+library(rgdal)
+library(leaflet)
+library(htmltools)
+shapes <- rgdal::readOGR("cb_2018_us_county_5m","cb_2018_us_county_5m")
+
+# the table starts from row 5
+df_geo <- read_excel('all-geocodes-v2019.xlsx',skip=4)  %>% 
+  filter(`Summary Level`=='040') %>%
+  select(`State Code (FIPS)`, `Area Name (including legal/statistical area description)`)
+
+colnames(df_geo) <- c('STATEFP','STATENAME')
+
+shapes@data <- shapes@data %>% 
+  left_join(df_geo) %>%
+  mutate(ALAND = as.numeric(as.character(ALAND)),
+         AWATER = as.numeric(as.character(AWATER)),
+         NAME = as.character(NAME))
+# remove shapes that are not in a state (e.g., Guam)
+shapes <- shapes[!is.na(shapes@data$STATENAME),] 
+# to be used by the dropdown list as available options
+names_state <- sort(df_geo$STATENAME)
+
+```
+```{r}
+
+md_shp <- st_read("https://raw.githubusercontent.com/frankrowe/maryland-geojson/master/maryland.geojson")
+
+library(tidycensus)
+census_api_key("0f4adff4206717d4947de6eb32d22e0b484ae6b8", install = TRUE, overwrite = TRUE)
+
+
+md_income_tract <- get_acs(geography = "tract", 
+                     variables = "B19013_001", 
+                     state = "MD",
+                     geometry = TRUE)
+
+md_black_pop_tract <- get_acs(geography = "tract", 
+              variables = "B02001_003", 
+              state = "MD", 
+              geometry = TRUE)
+
+```
+
+```{r}
+
+pal5 <- colorQuantile(palette = "BuPu", domain = md_income_tract$estimate, n = 10)
+
+pal6 <- colorQuantile(palette = "BuPu", domain = md_black_pop_tract$estimate, n = 10)
+
+numPal <- colorNumeric('viridis', md_income_tract$estimate)
+
+quantPal <- colorQuantile('viridis', md_income_tract$estimate, n = 5)
+
+pal <- colorNumeric(
+  palette = "viridis",
+  domain = md_income_tract$estimate, na.color = NA)
+
+mypal <- colorNumeric(
+  palette = "viridis",
+  domain = md_black_pop_tract$estimate, na.color = NA)
+
+```
+
+```{r}
+md_map_all <- 
+  leaflet()%>%
+  addProviderTiles(providers$CartoDB.Positron)%>%
+  addPolylines(
+    data=md_shp,
+    weight=2,
+    color="gray"
+  )%>%
+  addPolygons(data = md_income_tract, group = "Income by Tract", color = ~ pal(estimate), stroke = FALSE)%>%
+  addPolygons(data = md_black_pop_tract, group = "Black Population by Tract", color = ~ mypal(estimate), stroke = FALSE)%>%
+  addLegend("bottomleft", pal = pal, values = md_income_tract$estimate, title = "Income Levels")%>%
+  addLegend("bottomleft", pal = mypal, values = md_black_pop_tract$estimate, title = "Black Population")%>%
+   addLayersControl(
+  baseGroups = c("Income by Tract", "Black Population by Tract"),
+  options = layersControlOptions(collapsed = FALSE)) 
+  
+md_map_all
+  
+```
+#Scratch COde  
+```{r}
+  
+  
+  addPolygons(data = md_black_pop_tract, group = "Black Population by Tract", color = ~ pal6(estimate), stroke = FALSE)%>%
+  addLegendNumeric(
+    pal = numPal,
+    values = md_income_tract$estimate,
+    position = 'bottomleft')%>%
+   addLayersControl(
+  baseGroups = c("Income by Tract", "Black Population by Tract"),
+  options = layersControlOptions(collapsed = FALSE))   
+    
+    
+    
+    "bottomleft", pal = pal5, title="Income Levels",
+            values = md_income_tract$estimate, group="Income by Tract") 
+
+```
+
+
+
+
+
+%>%
+  addLegendNumeric("bottomleft", pal = pal2, title="Black Population",
+            values = md_black_pop_tract$estimate, group="Black Population by Tract") %>%
+  addLayersControl(
+  baseGroups = c("Income by Tract", "Black Population by Tract"),
+  options = layersControlOptions(collapsed = FALSE))
+
+md_map_all
+```
+
+
+
+```{r}
+observeEvent(input$map_groups, {
+  my_map <- leafletProxy("md_map_all") %>% clearControls()
+  
+  if (input$map_groups == 'Income by Tract'){
+    my_map <- my_map %>%
+      addLegend(
+        "topright",
+        pal = colorBin('OrRd', md_shp$md_income_tract),
+        values = md_shp$md_income_tract)
+  }else{
+    my_map <- my_map %>%
+      addLegend(
+        "topright",
+        pal = colorBin('YlGnBu', md_shp$md_black_pop_tract),
+        values = md_shp$md_black_pop_tract)
+  }
+})
+  
+```
+
+
+
+

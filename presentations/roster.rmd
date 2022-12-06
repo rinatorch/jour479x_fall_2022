@@ -1,0 +1,22 @@
+---
+title: "Untitled"
+output: html_document
+date: "2022-12-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+```{r}
+
+new <- read_csv("new.csv")
+
+old <- read_csv("old.csv")
+
+this <- anti_join(new, old)%>%
+  filter(Gender == "Female")
+
+write.csv(this,"commons.csv", row.names = FALSE)
+
+```
