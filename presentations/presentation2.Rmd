@@ -363,7 +363,33 @@ Concerns, takeaways and next steps:
 
 --> I feel like I'm missing GIS expertise that could help me get in a base map. I used the .shp to figure out how I could analyze by county, but my research online suggests there's more I could do with the data from the state. 
 
+#CUTS from final
+```{r}
 
+soccer_st <- st_transform(soccer, 4269)
+
+swimming_st <- st_transform(swimming, 4269)
+
+roller_st <- st_transform(roller_sports, 4269)
+
+```{r}
+
+golf_st <- st_transform(golf, 4269)
+
+tract_income_golf <- golf_st %>%
+  st_join(md_income_tract)
+
+golf_analysis <- tract_income_golf %>%
+  group_by(NAME)%>%
+  summarize(count= n())
+  arrange(desc(count))
+
+as.tibble(golf_analysis)
+
+golf_join <- inner_join(golf_analysis, md_income_tract_binned)
+
+```
+```
 
 
 

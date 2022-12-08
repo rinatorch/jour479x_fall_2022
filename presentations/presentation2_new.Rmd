@@ -3,9 +3,29 @@ title: "Maryland Sports Venues Data Exploration"
 output: html_document
 ---
 
+# Exploring Sports Recreation Deserts in Maryland
+
+In this presentation, I set out to explore the role demographics play in understanding the locations of different sports venues in Maryland. I wanted to search for sports recreational deserts -- areas that aren't close to sports venues, and I wanted to determine what demographic patterns look like.
+
+I began with an exploration at the county level and later dug into demographics and venue data at the Census tract level, to see if there were broader trends at play. **Ultimately, I'll show how areas in the eastern side of Maryland lack access to sports recreation venues, and are also among some of the lower income areas in the state.**
+
+In this analysis, I'll dig into a couple of types of analysis:
+
+-   Counting the number of sports venues by county, by sport
+
+-   Plot the relationship between county population and number of county sports venues
+
+-   Mapping demographics at the Census tract level with sports venue locations
+
+-   Exploring Maryland income levels and sports venue locations
+
+-   Mapping areas with and without selected sports venues
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+I began by loading a ton of libraries and my Census API Key.
 
 ```{r}
 library(tidyverse)
@@ -20,8 +40,20 @@ library(readxl)
 library(shinydashboard)
 library(rgdal)
 library(htmltools)
+library(tidycensus)
+
+census_api_key("0f4adff4206717d4947de6eb32d22e0b484ae6b8", install = TRUE, overwrite = TRUE)
 ```
-#load sports dataframes
+
+**The data**
+
+I then brought in data on sports venues from the state's open data portal. The databases I'm analyzing were last updated in 2014. As far as I can tell, the basketball dataset only includes venues with indoor courts. It also includes some recreation centers (Leonard Hall Recreation Center) and some high schools (Dr. Henry A. Wise, Jr. High School).
+
+The site describes the data, as follows:
+
+"These venues offer opportunities to participate in free and fee-based - organized and pick-up - indoor and outdoor sports and physical fitness related activities in the area of Basketball."
+
+That leaves many questions, and I'm not sure how accurate this is. Throughout this presentation, bear in mind that this dataset might not be complete and it might be out
 
 ```{r}
 bball <- st_read("basketball/SOCI_Basketball_MDSports.shp")
@@ -37,19 +69,353 @@ swimming <- st_read("swimming/SOCI_Swimming_MDSports.shp")
 indoor_sports <- st_read("indoor_sports/SOCI_IndoorSports_MDSports.shp")
 
 roller_sports <- st_read("roller_sports/SOCI_RollerSports_MDSports.shp")
+
+baseball <- st_read("baseball/SOCI_Baseball_MDSports.shp")
+
+ice_skating <- st_read("ice_skating/SOCI_IceSkating_MDSports.shp")
+
+equestrian <- st_read("equestrian/SOCI_Equestrian_MDSports.shp")
+
+tennis <- st_read("tennis/SOCI_Tennis_MDSports.shp")
+
+#combine all
+sports_combo <- bind_rows(bball, golf, skateboarding, soccer, swimming, indoor_sports, roller_sports, baseball, ice_skating, equestrian, tennis)
+
+#Check for repeats
+sports_combo %>% distinct(Title)%>%
+  group_by(Title)%>%
+  summarise(count = n())%>%
+  arrange(desc(count))
+
 ```
 
-#load in census stuff
+**Examining Sports by County**
+
+Next, I began to explore the locations of sports venues at the county level.
+
 ```{r}
-library(tidycensus)
-census_api_key("0f4adff4206717d4947de6eb32d22e0b484ae6b8", install = TRUE, overwrite = TRUE)
+
+bball_counties <- bball%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  arrange(desc(venue_count))%>%
+  mutate(County = str_to_lower(County))
+
+
+bball_counties %>% gt()%>%
+  cols_hide(columns = c(geometry))%>%
+  cols_label(
+    County = "Jurisdiction",
+    venue_count = "Number of Basketball Courts"
+  )%>%
+  tab_header(
+    title = "Frederick County is filled with basketball courts"
+  )
+
+```
+
+Frederick County is coming out on top with basketball courts, with Baltimore and Baltimore County not too far behind. Let's see which county comes up on top for tennis.
+
+```{r}
+
+tennis_counties <- tennis%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  arrange(desc(venue_count))%>%
+  mutate(County = str_to_lower(County))
+
+
+tennis_counties %>% gt()%>%
+  cols_hide(columns = c(geometry))%>%
+  cols_label(
+    County = "Jurisdiction",
+    venue_count = "Number of Tennis Venues"
+  )%>%
+  tab_header(
+    title = "Baltimore County leads in tennis vemues"
+  )
+
+```
+
+Baltimore County is number one for tennis venues. Frederick is also up top. Let's see if Frederick continues its reign.
+
+Let's look at baseball, too.
+
+```{r}
+
+baseball_counties <- baseball%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  arrange(desc(venue_count))%>%
+  mutate(County = str_to_lower(County))
+
+
+baseball_counties %>% gt()%>%
+  cols_hide(columns = c(geometry))%>%
+  cols_label(
+    County = "Jurisdiction",
+    venue_count = "Number of baseball Venues"
+  )%>%
+  tab_header(
+    title = "Frederick County leads in baseball vemues"
+  )
+
+```
+
+Frederick County is having a moment. The region is up top for baseball venues by a lot. I guess that might make sense given the physical topography of the area. Also, the Frederick Keys come to mind.
+
+Let's check out ice skating.
+
+```{r}
+
+ice_counties <- ice_skating%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  arrange(desc(venue_count))%>%
+  mutate(County = str_to_lower(County))
+
+
+ice_counties %>% gt()%>%
+  cols_hide(columns = c(geometry))%>%
+  cols_label(
+    County = "Jurisdiction",
+    venue_count = "Number of ice skating Venues"
+  )%>%
+  tab_header(
+    title = "Prince George's County leads in ice skating vemues"
+  )
+
+```
+
+This is a smaller dataset. Prince George's County tops the list. Baltimore City and Montgomery County aren't far behind. This might hint at a connection to population.
+
+Up next, soccer.
+
+```{r}
+
+soccer_counties <- soccer%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  arrange(desc(venue_count))%>%
+  mutate(County = str_to_lower(County))
+
+
+soccer_counties %>% gt()%>%
+  cols_hide(columns = c(geometry))%>%
+  cols_label(
+    County = "Jurisdiction",
+    venue_count = "Number of soccer venues"
+  )%>%
+  tab_header(
+    title = "Frederick County leads in soccer spots"
+  )
+
+```
+
+Frederick once again! This is a new showing from Calvert, though.
+
+Let's look at swimming.
+
+```{r}
+
+swim_counties <- swimming%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  arrange(desc(venue_count))%>%
+  mutate(County = str_to_lower(County))
+
+
+swim_counties %>% gt()%>%
+  cols_hide(columns = c(geometry))%>%
+  cols_label(
+    County = "Jurisdiction",
+    venue_count = "Number of swimming Venues"
+  )%>%
+  tab_header(
+    title = "Baltimore County leads in swimming venues"
+  )
+
+```
+
+Baltimore County and Baltimore City are up top.
+
+Rather than continuing to move through sports one by one, we'll throw a ton of sports together and see which counties have the most sports venues.
+
+This broad metric includes:
+
+-   basketball
+
+-   golf
+
+-   skateboarding
+
+-   soccer
+
+-   swimming
+
+-   indoor sports
+
+-   roller sports
+
+-   baseball
+
+-   ice_skating
+
+-   equestrian
+
+-   tennis
+
+```{r}
+
+combo_counties <- sports_combo%>%
+  group_by(County)%>%
+  summarize(venue_count = n ())%>%
+  select(County, venue_count)%>%
+  arrange(desc(venue_count))%>%
+  mutate(County = str_to_lower(County))
+
+
+combo_counties %>% gt()%>%
+  cols_hide(columns = c(geometry))%>%
+  cols_label(
+    County = "Jurisdiction",
+    venue_count = "Number of sports venues"
+  )%>%
+  tab_header(
+    title = "Baltimore County is filled with sports venues"
+  )
+
+```
+
+We're seeing Baltimore County up top with Montgomery and Frederick counties. All of our Frederick repeats make sense now.
+
+**Diving into Census Data**
+
+Now that we've got a sense of which counties have a lot of sports venues, it's time to pull in Census data to see if we can bring any meaning to why these counties might be coming out on top.
+
+We'll begin by pulling a big dataset pf variables from tidycensus.
+
+```{r}
 
 #I used this to explore variables of interest.
 vars <- load_variables(2010, "acs5", cache = TRUE)
 
-#To get the ball rolling, I added in median household income, total population, white population and Black or African American population. I can calculate some percenatges with these figures. I'm definitely interested in incorporating more variables, but this is just a starting point.
+```
+
+I chose a couple of metrics of interest:
+
+-   population with less than high school
+
+-   income
+
+-   population
+
+-   Black population
+
+-   white population
+
+```{r}
+
+less_than_hs_county <- get_acs(geography = "county", 
+                     variables = "B23006_002", 
+                     state = "MD",
+                     geometry = TRUE)
+
+md_income_county <- get_acs(geography = "county", 
+                     variables = "B19013_001", 
+                     state = "MD",
+                     geometry = TRUE)
+
+md_pop_county <- get_acs(geography = "county", 
+                     variables = "B01003_001", 
+                     state = "MD",
+                     geometry = TRUE)
 
 
+md_black_pop_county <- get_acs(geography = "county", 
+                     variables = "B02001_003", 
+                     state = "MD",
+                     geometry = TRUE)
+
+
+md_white_pop_county <- get_acs(geography = "county", 
+                     variables = "B02001_002", 
+                     state = "MD",
+                     geometry = TRUE)
+
+```
+
+I'll pull in some similar data by Census tract. We'll explore this later.
+
+```{r}
+
+less_than_hs_tract <- get_acs(geography = "tract", 
+                     variables = "B23006_002", 
+                     state = "MD",
+                     geometry = TRUE)
+
+md_income_tract <- get_acs(geography = "tract", 
+                     variables = "B19013_001", 
+                     state = "MD",
+                     geometry = TRUE)
+
+md_black_pop_tract <- get_acs(geography = "tract", 
+              variables = "B02001_003", 
+              state = "MD", 
+              geometry = TRUE)
+```
+
+Bearing in mind the populous counties that had the most venues, I wanted to explore which counties have the most basketball venues per person.
+
+```{r}
+md_bball_pop_county <- inner_join(md_pop_clean, bball_counties)%>%
+  select(County, venue_count, total_pop, black_pop, pct_black, white_pop, pct_white)%>%
+  mutate(per_pop = venue_count/total_pop)%>%
+  arrange(desc(per_pop))
+
+md_bball_pop_county
+
+```
+
+Here, we calculated two new metrics: the percent of a jurisdiction's population that is Black and the number of basketball venues per jurisdiction. It was interesting to see Somerset, Kent, Frederick, Garrett and Caroline up there.
+
+These counties have smaller populations, so these numbers are definitely inflated. Garrett has a single basketball venue listed, but is in the top. These numbers, of course, are not telling the full story. Frederick's repeated appearance toward the top could be notable, though.
+
+Let's dig back into the sports combination dataset, and see if there's anything of interest there -- and to see if we see the same counties.
+
+```{r}
+
+sports_combo_county <- inner_join(md_pop_clean, combo_counties)%>%
+  select(County, venue_count, total_pop, black_pop, pct_black, white_pop, pct_white)%>%
+  mutate(per_pop = venue_count/total_pop)%>%
+  arrange(desc(per_pop))
+
+sports_combo_county
+
+```
+
+Somerset, Kent, Worcester and Queen Anne's are leaders here. They also have smaller populations.
+
+We can plot it, too. When we do, we see an interesting line here. More venues, more population. This is not shocking.
+
+```{r}
+ggplot() + geom_point(data=sports_combo_county, aes(x=venue_count, y=total_pop)) +
+  geom_smooth(data=sports_combo_county, aes(x=venue_count, y=total_pop), method="lm")
+```
+
+This isn't a wild surprise, but we can see that more higher county population also means a higher count of sports venues. Population is playing a huge role, so it's important we zero in tighter than the county level.
+
+**Mapping Selected Sports**
+
+Let's start by mapping to get a better sense of what's going on at the local level.
+
+```{r}
 
 
 
@@ -86,303 +452,13 @@ leaflet() %>%
   )
   
 ```
- 
- 
-```{r}
-md_income <- get_acs(geography = "county", 
-                     variables = "B19013_001", 
-                     state = "MD",
-                     geometry = TRUE)
 
+There's definitely a concentration around the D.C. Metropolitan Area and Baltimore. Areas around the Maryland-Delaware broader are lacking sports venues.
 
-pal <- colorQuantile(palette = "YlOrRd", domain = md_income$estimate, n = 10)
-
-md_income%>% 
-  st_transform(crs = "+init=epsg:4326") %>%
-    leaflet(width = "100%") %>%
-  addPolygons(
-    popup = ~ str_extract(NAME, "^([^,]*)"),
-     stroke = FALSE,
-      smoothFactor = 0,
-      fillOpacity = 0.7,
-      color = ~ pal(estimate)) %>%
-  addCircleMarkers(
-    data=swimming,
-    color="blue",
-    radius=2,
-    group="Swimming")%>%
-   addLayersControl(
-    overlayGroups = c("Swimming"),
-    options = layersControlOptions(collapsed = FALSE)
-  )%>%
-  
-  addLegend("bottomleft", 
-        pal = pal, 
-        values = ~ estimate,
-        title = "Income Levels",
-        opacity = 0.6)
-  
-```
-
-
+Let's see what happens if we load in some demographic information, and keep the sports. It's going to be a bit chaotic at first glance, but if we interact with it, we can check out which demographics seem to be tightly connected.
 
 ```{r}
-
-md_income <- get_acs(geography = "county", 
-                     variables = "B19013_001", 
-                     state = "MD",
-                     geometry = TRUE)
-
-
-md_income_tract <- get_acs(geography = "tract", 
-                     variables = "B19013_001", 
-                     state = "MD",
-                     geometry = TRUE)
-
-md_pop <- get_acs(geography = "county", 
-                     variables = "B01003_001", 
-                     state = "MD",
-                     geometry = TRUE)
-
-
-md_black_pop <- get_acs(geography = "county", 
-                     variables = "B02001_003", 
-                     state = "MD",
-                     geometry = TRUE)
-
-
-md_white_pop <- get_acs(geography = "county", 
-                     variables = "B02001_002", 
-                     state = "MD",
-                     geometry = TRUE)
-
-pal <- colorQuantile(palette = "YlOrRd", domain = md_income$estimate, n = 10)
-
-pal2 <- colorQuantile(palette = "YlOrRd", domain = md_pop$estimate, n = 10)
-
-pal3 <- colorQuantile(palette = "YlOrRd", domain = md_black_pop$estimate, n = 10)
-
-pal4 <- colorQuantile(palette = "YlOrRd", domain = md_white_pop$estimate, n = 10)
-
-pal5 <- colorQuantile(palette = "BuPu", domain = md_income_tract$estimate, n = 10)
-
-pal6 <- colorQuantile(palette = "BuPu", domain = md_black_pop_tract$estimate, n = 10)
-
-mypalette <- colorNumeric( palette="viridis", md_income$estimate, na.color="transparent")
-mypalette_pop <- colorNumeric( palette="viridis", md_pop$estimate)
-
-
-# Basic choropleth with leaflet?
-m <- leaflet(md_shp) %>% 
-  addPolygons( fillColor = ~pal5(estimate), stroke=FALSE, group="Income" )%>%
-  addPolygons( fillColor = ~pal2(estimate), stroke=FALSE, group="Population" )%>%
-   addCircleMarkers(
-    data=swimming,
-    color="blue",
-    radius=2,
-    group="Swimming")%>%
-  addCircleMarkers(
-    data=soccer,
-    color="black",
-    radius=2,
-    group="Soccer")%>%
-  addLayersControl(
-    baseGroups = c("Income", "Population"),
-    overlayGroups = c("Swimming", "Soccer"),
-    options = layersControlOptions(collapsed = FALSE)
-  )
-
-m
-
-
-
-```
-
-
-```{r}
-
-
 md_shp <- st_read("https://raw.githubusercontent.com/frankrowe/maryland-geojson/master/maryland.geojson")
-
-md_map_all <- leaflet()%>%
-  addProviderTiles(providers$CartoDB.Positron)%>%
-  addPolylines(
-    data=md_shp,
-    weight=2,
-    color="gray"
-  )%>%
-  addPolygons(data = md_income, group="Population", color = ~ pal(estimate), stroke = FALSE)%>%
-  addPolygons(data = md_pop, group = "Income", color = ~ pal2(estimate), stroke = FALSE)%>%
-  addPolygons(data = md_pop, group = "Black Population", color = ~ pal3(estimate), stroke = FALSE)%>%
-   addPolygons(data = md_pop, group = "White Population", color = ~ pal4(estimate), stroke = FALSE)%>%
-  addPolygons(data = md_income_tract, group = "Income by Tract", color = ~ pal5(estimate), stroke = FALSE)%>%
-  addPolygons(data = md_black_pop_tract, group = "Black Population by Tract", color = ~ pal6(estimate), stroke = FALSE)%>%
-   addCircleMarkers(
-    data=bball,
-    color="orange",
-    radius=2,
-    group="Basketball")%>%
-  addCircleMarkers(
-    data=golf,
-    color="green",
-    radius=2,
-    group="Golf")%>%
-  addCircleMarkers(
-    data=skateboarding,
-    color="purple",
-    radius=2,
-    group="Skateboarding")%>%
-  addCircleMarkers(
-    data=soccer,
-    color="black",
-    radius=2,
-    group="Soccer")%>%
-  addCircleMarkers(
-    data=swimming,
-    color="blue",
-    radius=2,
-    group="Swimming")%>%
-  addCircleMarkers(
-    data=indoor_sports,
-    color="brown",
-    radius=2,
-    group="Indoor Sports"
-  )%>%
-  addCircleMarkers(
-    data=roller_sports,
-    color="light blue",
-    radius=2,
-    group="Roller Sports"
-  )%>%
-  addLayersControl(
-  baseGroups = c("Income", "Income by Tract", "Black Population by Tract", "Population", "Black Population", "White Population"),
-  overlayGroups = c("Golf", "Basketball", "Soccer", "Swimming", "Skateboarding", "Indoor Sports", "Roller Sports"),
-  options = layersControlOptions(collapsed = FALSE))
- 
- 
-  
-
-md_map_all
-
-
-```
-
-#exploring race by tract
-```{r}
-
-md_black_pop_tract <- get_acs(geography = "tract", 
-              variables = "B02001_003", 
-              state = "MD", 
-              geometry = TRUE)
-md_race_pct
-
-md_race_wider <- md_race_pct %>%
-  pivot_wider(names_from = "variable", values_from = "estimate")%>%
-  distinct(GEOID, black_pop, total_pop)
-  mutate(pct_black = black_pop/total_pop)%>%
-  mutate(pct_white = white_pop/total_pop)%>%
-  mutate(county_clean = str_to_lower(NAME))%>%
-  group_by(GEOID)%>%
-  summarize(sum)
-  
-
-md_pop_clean <-md_race_wider%>%
-  separate(county_clean, c("County", "state"), sep = " c", extra = "merge")
-
-
-```
-
-#trying to spatial join
-
-```{r}
-ggplot() +
-  geom_sf(data=md_income_tract, aes(fill=estimate))+
-  geom_sf(data=golf)
-  
-bball_locs <- bball %>%
-  st_as_sf()
-
-tract_income_bball <- bball_locs %>%
-  st_join(md_income_tract)
-
-tract_county_income <- bball_locs %>%
-  st_join(md_income)
-
-schools_homicides <- washington_schools %>%
-  st_join(washington_homicides, left="FALSE")
-
-
-bball_coords <- bball %>% 
-  filter(is.na(Xcoordinat) == F & is.na(Ycoordinat) == F) %>% 
-  st_as_sf(coords = c("Xcoordinat", "Ycoordinate"))
-class(bball)
-
-example = sf::st_as_sf(example, wkt = "geometry")
-
-bball_point <- st_point(bball)
-
-
-
-st_set_crs(md_income_tract, 4269)
-
-md_income_tract <- st_set_crs(md_income_tract, 4269)
-
-st_crs(md_income_tract) <- 4269 
-
-tract_income_bball <- bball %>%
-  st_join(md_income_tract)
-
-
-
-
-library(tidyverse) 
-library(tigris) 
-library(sf)
-md <- tracts("MD")
-md <- st_as_sf(md) %>% st_set_crs(4269)
-ball <- st_read(system.file("basketball/SOCI_Basketball_MDSports.shp", package = 'sf')) %>%
-  st_transform(4269)
-st_intersects(bball, md)
-```
-
-
-```{r}
-
-md_shp <- st_read("https://raw.githubusercontent.com/frankrowe/maryland-geojson/master/maryland.geojson")
-
-
-md_income_tract <- get_acs(geography = "tract", 
-                     variables = "B19013_001", 
-                     state = "MD",
-                     geometry = TRUE)
-
-map <- leaflet()%>%
-  addProviderTiles(providers$CartoDB.Positron)%>%
-  addPolylines(
-    data=md_shp,
-    weight=2,
-    color="gray"
-  )%>%
-  addPolygons(data = md_income_tract, group = "Income by Tract", color = ~ pal5(estimate), stroke = FALSE)%>%
-  addPolygons(data = md_black_pop_tract, group = "Black Population by Tract", color = ~ pal6(estimate), stroke = FALSE)%>%
-  baseGroups = c("Income by Tract", "Black Population by Tract")
-
-
-
-
-
-```
-```{r}
-
-
-
-
-```
-
-
-
-
-```{r}
 
 pal5 <- colorQuantile(palette = "BuPu", domain = md_income_tract$estimate, n = 10)
 
@@ -400,9 +476,10 @@ mypal <- colorQuantile(
   palette = "viridis",
   domain = md_black_pop_tract$estimate, n=8, na.color = NA)
 
-```
+thepal <- colorQuantile(
+  palette = "viridis",
+  domain = less_than_hs_tract$estimate, n=5, na.color = NA)
 
-```{r}
 md_map_all <- 
   leaflet()%>%
   addProviderTiles(providers$CartoDB.Positron)%>%
@@ -413,8 +490,10 @@ md_map_all <-
   )%>%
   addPolygons(data = md_income_tract, group = "Income by Tract", color = ~ pal(estimate), stroke = FALSE)%>%
   addPolygons(data = md_black_pop_tract, group = "Black Population by Tract", color = ~ mypal(estimate), stroke = FALSE)%>%
+  addPolygons(data = less_than_hs_tract, group = "Less Than High School by Tract", color = ~ thepal(estimate), stroke = FALSE)%>%
   addLegend("bottomleft", pal = pal, values = md_income_tract$estimate, title = "Income Quantiles")%>%
   addLegend("bottomleft", pal = mypal, values = md_black_pop_tract$estimate, title = "Black Population Quantiles")%>%
+   addLegend("bottomright", pal = mypal, values = less_than_hs_tract$estimate, title = "Less Than High School by Tract")%>%
   addCircleMarkers(
     data=bball,
     color="orange",
@@ -442,63 +521,75 @@ md_map_all <-
     group="Swimming")%>%
    addLayersControl(
   overlayGroups = c("Golf", "Basketball", "Soccer", "Swimming", "Skateboarding"),
-     baseGroups = c("Income by Tract", "Black Population by Tract"),
+     baseGroups = c("Income by Tract", "Black Population by Tract", "Less Than High School by Tract"),
   options = layersControlOptions(collapsed = FALSE)) 
   
 md_map_all
-  
 ```
-#Spatial Joining
+
+Income seems to be the most closely related. When you toggle to income by tract, you can see the way sports venues are concentrated in the yellow areas, which are the highest income areas. Many areas on the eastern part of Maryland are purple and blue, indicating lower-income.
+
+The other demographics I explored -- education and Black population -- weren't as closely correlated.
+
+Knowing that income was closely correlated, I created a clean map without the clutter of the added legends and base layers. Here, we look only at income, just to get a fresher, more presentable view.
+
 ```{r}
-
-
-bball_st <- st_transform(bball, 4269)
-
-tract_income_bball <- bball_st %>%
-  st_join(md_income_tract)
-
-bball_analysis <- tract_income_bball %>%
-  group_by(NAME)%>%
-  summarize(count= n())
-
+md_map_income <- 
+  leaflet()%>%
+  addProviderTiles(providers$CartoDB.Positron)%>%
+  addPolylines(
+    data=md_shp,
+    weight=2,
+    color="gray"
+  )%>%
+  addPolygons(data = md_income_tract, group = "Income by Tract", color = ~ pal(estimate), stroke = FALSE)%>%
+  addLegend("bottomleft", pal = pal, values = md_income_tract$estimate, title = "Income Quantiles")%>%
+  addCircleMarkers(
+    data=bball,
+    color="orange",
+    radius=2,
+    group="Basketball")%>%
+  addCircleMarkers(
+    data=golf,
+    color="green",
+    radius=2,
+    group="Golf")%>%
+  addCircleMarkers(
+    data=skateboarding,
+    color="purple",
+    radius=2,
+    group="Skateboarding")%>%
+  addCircleMarkers(
+    data=soccer,
+    color="black",
+    radius=2,
+    group="Soccer")%>%
+  addCircleMarkers(
+    data=swimming,
+    color="blue",
+    radius=2,
+    group="Swimming")%>%
+   addLayersControl(
+  overlayGroups = c("Golf", "Basketball", "Soccer", "Swimming", "Skateboarding"),
+  options = layersControlOptions(collapsed = FALSE)) 
+  
+md_map_income
 
 ```
 
+Noting our interest in the eastern part of Maryland, we notice a cluster of golf courses in Ocean City, Maryland, which is also shown to be on the lower end of the income quantiles. There's also a cluster of sports venues not far from Salisbury. But south of Cambridge, right by the Chesapeake, there's almost nothing.
+
+**Diving Deeper Into Income Levels**
+
+Next, we'll get a sense of income levels. We'll create five income buckets and see where sports are concentrated.
+
+First, we'll look at golf.
 
 ```{r}
 
 golf_st <- st_transform(golf, 4269)
 
-tract_income_golf <- golf_st %>%
-  st_join(md_income_tract)
-
-golf_analysis <- tract_income_golf %>%
-  group_by(GEOID)%>%
-  summarize(count= n())
-
-
-```
-
-```{r}
-
-soccer_st <- st_transform(soccer, 4269)
-
-swimming_st <- st_transform(swimming, 4269)
-
-roller_st <- st_transform(roller_sports, 4269)
-
-```
-
-
-
-
-
-#binning
-```{r}
-
 md_income_tract_binned <- md_income_tract %>% mutate(new_bin = ntile(estimate, n=5))
-
-golf_join <- inner_join(golf_analysis, md_income_tract_binned)
 
 md_income_tract_golf_bins <- golf_st %>%
   st_join(md_income_tract_binned)%>%
@@ -506,38 +597,7 @@ md_income_tract_golf_bins <- golf_st %>%
   summarize(count = n())
 
 
-md_income_tract_bball_bins <- bball_st %>%
-  st_join(md_income_tract_binned)%>%
-  group_by(new_bin)%>%
-  summarize(count = n())
-
-md_income_tract_soccer_bins <- soccer_st %>%
-  st_join(md_income_tract_binned)%>%
-  group_by(new_bin)%>%
-  summarize(count = n())
-
-md_income_tract_swim_bins <- swimming_st %>%
-  st_join(md_income_tract_binned)%>%
-  group_by(new_bin)%>%
-  summarize(count = n())
-
-
-md_income_tract_roller_bins <- roller_st %>%
-  st_join(md_income_tract_binned)%>%
-  group_by(new_bin)%>%
-  summarize(count = n())
-
-golf_vis <- + ggplot(data=md_income_tract_golf_bins, aes(x=new_bin, y=count)) +
-    geom_bar(stat="identity", fill="lightblue") +
-    labs(title="Golf courses are concentrated in wealthy Maryland areas", caption="By Rina Torchinsky")  + theme_minimal() + 
-  theme(
-    plot.title = element_text(size = 16, face = "bold"),
-    axis.title = element_text(size = 8), 
-    plot.subtitle = element_text(size=10), 
-    panel.grid.minor = element_blank()
-    )
-
-perf <-ggplot(data=md_income_tract_golf_bins, aes(x=new_bin, y=count))+
+golf_income <-ggplot(data=md_income_tract_golf_bins, aes(x=new_bin, y=count))+
   geom_bar(stat="identity",fill="#5a9e4b")+
   labs(title="Golf courses are concentrated in wealthy Maryland areas", caption="By Rina Torchinsky")  + theme_minimal() + 
   theme(
@@ -547,11 +607,129 @@ perf <-ggplot(data=md_income_tract_golf_bins, aes(x=new_bin, y=count))+
     panel.grid.minor = element_blank()
     )
 
-perf
+golf_income
+
 ```
+
+This isn't a wild surprise. There are more golf courses in wealthier Census tracts. Golf can be an expensive sport. Let's check out basketball -- a personal favorite.
+
+```{r}
+
+md_income_tract_bball_bins <- bball_st %>%
+  st_join(md_income_tract_binned)%>%
+  group_by(new_bin)%>%
+  summarize(count = n())
+
+bball_income <-ggplot(data=md_income_tract_bball_bins, aes(x=new_bin, y=count))+
+  geom_bar(stat="identity",fill="orange")+
+  labs(title="Basketball venues are in both high and low income areas", caption="By Rina Torchinsky")  + theme_minimal() + 
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title = element_text(size = 8), 
+    plot.subtitle = element_text(size=10), 
+    panel.grid.minor = element_blank()
+    )
+
+bball_income
+
+
+```
+
+This is interesting. Basketball exists in a lot of lower income areas, but also in a lot of very high income areas.
+
+```{r}
+soccer_st <- st_transform(soccer, 4269)
+
+md_income_tract_soccer_bins <- soccer_st %>%
+  st_join(md_income_tract_binned)%>%
+  group_by(new_bin)%>%
+  summarize(count = n())
+
+soccer_income <-ggplot(data=md_income_tract_soccer_bins, aes(x=new_bin, y=count))+
+  geom_bar(stat="identity",fill="purple")+
+  labs(title="Soccer venues split between high and low income Maryland areas", caption="By Rina Torchinsky")  + theme_minimal() + 
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.title = element_text(size = 8), 
+    plot.subtitle = element_text(size=10), 
+    panel.grid.minor = element_blank()
+    )
+soccer_income
+```
+
+```{r}
+swimming_st <- st_transform(swimming, 4269)
+
+md_income_tract_swim_bins <- swimming_st %>%
+  st_join(md_income_tract_binned)%>%
+  group_by(new_bin)%>%
+  summarize(count = n())
+
+md_income_tract_swim_bins
+```
+
+**Pulling Sports Together**
+
+Let's begin to pull in a collection of sports.
+
+```{r}
+
+combo_st <- st_transform(sports_combo, 4269)
+
+```
+
+We're going to look at tracts with and tracts without sports venues. Of note, there are some NAs that we're weeding out for the purpose of mapping.
+
+```{r}
+
+tract_income_combo <- combo_st %>%
+  st_join(md_income_tract)
+
+#count of number of venues per tract
+combo_analysis <- tract_income_combo %>%
+  group_by(GEOID)%>%
+  drop_na(GEOID)%>%
+  summarize(count= n())%>%
+  arrange(desc(count))
+
+#check for distinctions and count 
+all_tracts <- md_income_tract%>%distinct(GEOID)
+
+#grab tracts without sports. These are ones.
+sportsless_tracts <- anti_join(all_tracts, combo_analysis)%>%
+  mutate(col = 0)
+
+#create mappable dataframe of tracts with venues.
+df <- left_join(sportsless_tracts, md_income_tract)
+
+#create mappable dataframe of tracts without venues.
+df_w <- left_join(md_income_tract, sportsless_tracts)%>%
+  replace(is.na(.), 1)%>%
+  filter(col == 1)
+
+pal30 <- colorNumeric(palette = "red", domain = df$col)
+
+pal20 <- colorNumeric(palette = "yellow", domain = df$col)
+
+df <- st_as_sf(df)
+
+```
+
+```{r}
   
+leaflet()%>%
+  addProviderTiles(providers$CartoDB.Positron)%>%
+  addPolygons(data = df_w, group= "With Sports", color = ~ pal30(col), stroke = FALSE)%>%
+  addPolygons(data = df, group= "Without Sports", color = ~ pal20(col), stroke = FALSE)%>%
+  addPolylines(
+    data=md_shp,
+    weight=2,
+    color="gray"
+  )%>%
+  addLayersControl(
+     overlayGroups = c("Without Sports", "With Sports"),
+  options = layersControlOptions(collapsed = FALSE)) 
+  
+```
 
-
-
-
-
+\`\`\`
