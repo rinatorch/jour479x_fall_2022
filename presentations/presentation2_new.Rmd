@@ -716,20 +716,32 @@ df <- st_as_sf(df)
 ```
 
 ```{r}
+
+counties <- st_read("counties.geojson")
+
   
 leaflet()%>%
   addProviderTiles(providers$CartoDB.Positron)%>%
   addPolygons(data = df_w, group= "With Sports", color = ~ pal30(col), stroke = FALSE)%>%
   addPolygons(data = df, group= "Without Sports", color = ~ pal20(col), stroke = FALSE)%>%
+  addPolygons(data = md_income_tract, group = "Income Levels", color = ~ pal(estimate), stroke = FALSE)%>%
   addPolylines(
     data=md_shp,
     weight=2,
     color="gray"
   )%>%
+  addPolylines(
+    data=counties,
+    weight=2,
+    color="gray"
+  )%>%
+  addLegend("bottomleft", pal = pal, values = md_income_tract$estimate, title = "Income Quantiles")%>%
   addLayersControl(
-     overlayGroups = c("Without Sports", "With Sports"),
+     overlayGroups = c("Without Sports", "With Sports", "Income Levels"),
   options = layersControlOptions(collapsed = FALSE)) 
   
 ```
 
-\`\`\`
+Nearly all of Dorchester County does not have any sports venues. Parts of Worcester County also lack sports venues. Caroline County also lacks sports venues. Much of Allegany County also lacks sports venues.
+
+Parts of Prince George's County that hug Washington, D.C., including Chillum and Mount Rainier are lower income and lack sports venues. Upper parts of Montgomery County, including Poolesville and Barnesville, are wealthier and also have sports venues.
