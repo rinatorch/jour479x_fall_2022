@@ -41,6 +41,7 @@ library(shinydashboard)
 library(rgdal)
 library(htmltools)
 library(tidycensus)
+library(stringr)
 
 census_api_key("0f4adff4206717d4947de6eb32d22e0b484ae6b8", install = TRUE, overwrite = TRUE)
 ```
@@ -86,6 +87,7 @@ sports_combo %>% distinct(Title)%>%
   group_by(Title)%>%
   summarise(count = n())%>%
   arrange(desc(count))
+#No repeats!
 
 ```
 
@@ -107,10 +109,13 @@ bball_counties %>% gt()%>%
   cols_hide(columns = c(geometry))%>%
   cols_label(
     County = "Jurisdiction",
-    venue_count = "Number of Basketball Courts"
+    venue_count = "Count of Basketball Courts"
   )%>%
   tab_header(
     title = "Frederick County is filled with basketball courts"
+  )%>%
+   tab_source_note(
+    source_note = "Source: MD iMAP Data Catalog | By Rina Torchinsky"
   )
 
 ```
@@ -131,10 +136,13 @@ tennis_counties %>% gt()%>%
   cols_hide(columns = c(geometry))%>%
   cols_label(
     County = "Jurisdiction",
-    venue_count = "Number of Tennis Venues"
+    venue_count = "Count of Tennis Venues"
   )%>%
   tab_header(
-    title = "Baltimore County leads in tennis vemues"
+    title = "Baltimore County leads in tennis venues"
+  )%>%
+  tab_source_note(
+    source_note = "Source: MD iMAP Data Catalog | By Rina Torchinsky"
   )
 
 ```
@@ -157,10 +165,13 @@ baseball_counties %>% gt()%>%
   cols_hide(columns = c(geometry))%>%
   cols_label(
     County = "Jurisdiction",
-    venue_count = "Number of baseball Venues"
+    venue_count = "Count of Baseball Venues"
   )%>%
   tab_header(
-    title = "Frederick County leads in baseball vemues"
+    title = "Frederick County leads in baseball venues"
+  )%>%
+   tab_source_note(
+    source_note = "Source: MD iMAP Data Catalog | By Rina Torchinsky"
   )
 
 ```
@@ -183,15 +194,18 @@ ice_counties %>% gt()%>%
   cols_hide(columns = c(geometry))%>%
   cols_label(
     County = "Jurisdiction",
-    venue_count = "Number of ice skating Venues"
+    venue_count = "Count of Ice Skating Venues"
   )%>%
   tab_header(
-    title = "Prince George's County leads in ice skating vemues"
+    title = "Prince George's County leads in ice skating venues"
+  )%>%
+   tab_source_note(
+    source_note = "Source: MD iMAP Data Catalog | By Rina Torchinsky"
   )
 
 ```
 
-This is a smaller dataset. Prince George's County tops the list. Baltimore City and Montgomery County aren't far behind. This might hint at a connection to population.
+This is a smaller dataset. Prince George's County tops the list. Baltimore City and Montgomery County aren't far behind. This might hint at a connection to population, but the small sample size is also playing a role.
 
 Up next, soccer.
 
@@ -209,10 +223,13 @@ soccer_counties %>% gt()%>%
   cols_hide(columns = c(geometry))%>%
   cols_label(
     County = "Jurisdiction",
-    venue_count = "Number of soccer venues"
+    venue_count = "Count of Soccer Venues"
   )%>%
   tab_header(
     title = "Frederick County leads in soccer spots"
+  )%>% 
+tab_source_note(
+    source_note = "Source: MD iMAP Data Catalog | By Rina Torchinsky"
   )
 
 ```
@@ -235,10 +252,13 @@ swim_counties %>% gt()%>%
   cols_hide(columns = c(geometry))%>%
   cols_label(
     County = "Jurisdiction",
-    venue_count = "Number of swimming Venues"
+    venue_count = "Count of Swimming Venues"
   )%>%
   tab_header(
     title = "Baltimore County leads in swimming venues"
+  )%>%
+   tab_source_note(
+    source_note = "Source: MD iMAP Data Catalog | By Rina Torchinsky"
   )
 
 ```
@@ -289,11 +309,34 @@ combo_counties %>% gt()%>%
   )%>%
   tab_header(
     title = "Baltimore County is filled with sports venues"
+  )%>%
+   tab_source_note(
+    source_note = "Source: MD iMAP Data Catalog | By Rina Torchinsky"
   )
 
 ```
 
 We're seeing Baltimore County up top with Montgomery and Frederick counties. All of our Frederick repeats make sense now.
+
+Let's take a look at that a bit more visually, too. As a reminder, the combo_counties analysis includes tennis, basketball, golf, baseball, soccer and ice skating, among other sports venues.
+
+```{r}
+combo_counties$County = str_to_title(combo_counties$County)
+
+county_bars <- ggplot(data=combo_counties, aes(x=reorder(County, `venue_count`),y=`venue_count`))+
+  geom_bar(stat="identity",fill="red")+
+    coord_flip() +
+    theme_minimal()+
+  labs(title="Baltimore County is Loaded with Sports Venues", subtitle="Of all Maryland jurisdictions, this county comes out on top for most selected sports venues.", y="Count of Venues", x="Jurisdiction", "Source: Maryland iMap Data Catalog | By Rina Torchinsky")
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title = element_text(size = 8), 
+    plot.subtitle = element_text(size=10), 
+    panel.grid.minor = element_blank()
+    )
+
+county_bars
+```
 
 **Diving into Census Data**
 
@@ -374,6 +417,21 @@ md_black_pop_tract <- get_acs(geography = "tract",
 Bearing in mind the populous counties that had the most venues, I wanted to explore which counties have the most basketball venues per person.
 
 ```{r}
+md_race_pct <- get_acs(geography = "county", 
+              variables = c(black_pop = "B02001_003", total_pop = "B01003_001", white_pop = "B02001_002"), 
+              state = "MD", 
+              year = 2010)%>%
+              select(GEOID, NAME, variable, estimate)
+
+md_race_wider <- md_race_pct%>%
+  pivot_wider(names_from = variable, values_from = estimate)%>%
+  mutate(pct_black = black_pop/total_pop)%>%
+  mutate(pct_white = white_pop/total_pop)%>%
+  mutate(county_clean = str_to_lower(NAME))
+
+md_pop_clean <-md_race_wider%>%
+  separate(county_clean, c("County", "state"), sep = " c", extra = "merge")
+
 md_bball_pop_county <- inner_join(md_pop_clean, bball_counties)%>%
   select(County, venue_count, total_pop, black_pop, pct_black, white_pop, pct_white)%>%
   mutate(per_pop = venue_count/total_pop)%>%
@@ -391,6 +449,8 @@ Let's dig back into the sports combination dataset, and see if there's anything 
 
 ```{r}
 
+combo_counties$County = str_to_lower(combo_counties$County)
+
 sports_combo_county <- inner_join(md_pop_clean, combo_counties)%>%
   select(County, venue_count, total_pop, black_pop, pct_black, white_pop, pct_white)%>%
   mutate(per_pop = venue_count/total_pop)%>%
@@ -406,18 +466,23 @@ We can plot it, too. When we do, we see an interesting line here. More venues, m
 
 ```{r}
 ggplot() + geom_point(data=sports_combo_county, aes(x=venue_count, y=total_pop)) +
-  geom_smooth(data=sports_combo_county, aes(x=venue_count, y=total_pop), method="lm")
+  geom_smooth(data=sports_combo_county, aes(x=venue_count, y=total_pop), method="lm")+
+  labs(title="More People, More Sports Venues", subtitle= "Maryland areas with bigger populations have more sports venues.", "Source: Maryland iMap Data Catalog, U.S. Census | By Rina Torchinsky", x="Count of Sports Venues", y="Population")
+  theme(
+    plot.title = element_text(size = 10, face = "bold"),
+    axis.title = element_text(size = 5), 
+    plot.subtitle = element_text(size=10), 
+    panel.grid.minor = element_blank()
+    )
 ```
 
-This isn't a wild surprise, but we can see that more higher county population also means a higher count of sports venues. Population is playing a huge role, so it's important we zero in tighter than the county level.
+This isn't a wild surprise, but we can see that more higher county population also means a higher count of sports venues. Population is playing a huge role, so it's important we zero in tighter than the county level. Since this project was aimed at searching for sports recreational deserts, I want to begin to explore the geographic location of the sports venues.
 
 **Mapping Selected Sports**
 
-Let's start by mapping to get a better sense of what's going on at the local level.
+Let's start by mapping a collection of sports venues to get a better sense of what's going on at the local level.
 
 ```{r}
-
-
 
 leaflet() %>%
   addProviderTiles(providers$CartoDB.Positron) %>%
@@ -453,9 +518,9 @@ leaflet() %>%
   
 ```
 
-There's definitely a concentration around the D.C. Metropolitan Area and Baltimore. Areas around the Maryland-Delaware broader are lacking sports venues.
+There's definitely a concentration around the D.C. Metropolitan Area and Baltimore. Areas around the Maryland-Delaware border are lacking sports venues.
 
-Let's see what happens if we load in some demographic information, and keep the sports. It's going to be a bit chaotic at first glance, but if we interact with it, we can check out which demographics seem to be tightly connected.
+Let's see what happens if we load in some demographic information, and keep the sports. It's going to be a bit chaotic at first glance, but if we interact with it and toggle some of the overlay features, we can check out which demographics seem to be tightly connected.
 
 ```{r}
 md_shp <- st_read("https://raw.githubusercontent.com/frankrowe/maryland-geojson/master/maryland.geojson")
@@ -493,7 +558,7 @@ md_map_all <-
   addPolygons(data = less_than_hs_tract, group = "Less Than High School by Tract", color = ~ thepal(estimate), stroke = FALSE)%>%
   addLegend("bottomleft", pal = pal, values = md_income_tract$estimate, title = "Income Quantiles")%>%
   addLegend("bottomleft", pal = mypal, values = md_black_pop_tract$estimate, title = "Black Population Quantiles")%>%
-   addLegend("bottomright", pal = mypal, values = less_than_hs_tract$estimate, title = "Less Than High School by Tract")%>%
+   addLegend("bottomright", pal = mypal, values = less_than_hs_tract$estimate, title = "Less Than High School Quantiles")%>%
   addCircleMarkers(
     data=bball,
     color="orange",
@@ -521,15 +586,17 @@ md_map_all <-
     group="Swimming")%>%
    addLayersControl(
   overlayGroups = c("Golf", "Basketball", "Soccer", "Swimming", "Skateboarding"),
-     baseGroups = c("Income by Tract", "Black Population by Tract", "Less Than High School by Tract"),
+     baseGroups = c("Income by Tract", "Black Population by Tract", "Less Than High School Quantiles"),
   options = layersControlOptions(collapsed = FALSE)) 
   
 md_map_all
 ```
 
-Income seems to be the most closely related. When you toggle to income by tract, you can see the way sports venues are concentrated in the yellow areas, which are the highest income areas. Many areas on the eastern part of Maryland are purple and blue, indicating lower-income.
+It helps to make this full screen to toggle through all of it.
 
-The other demographics I explored -- education and Black population -- weren't as closely correlated.
+Income seems to be the most closely related. When you toggle to income by tract, you can see the way sports venues are concentrated in the yellow areas, which are the highest income areas. Many areas on the eastern part of Maryland are purple and blue, indicating lower-income. These areas also largely lacked sports venues.
+
+The other demographics I explored -- education and Black population -- weren't as closely connected to the sports venues. For example, if you scroll to parts of Baltimore with high Black populations , some areas still have sports venues. High School education levels also did not appear to be closely connected. Income, stands out, though, when you begin to explore the income overlay paired with the
 
 Knowing that income was closely correlated, I created a clean map without the clutter of the added legends and base layers. Here, we look only at income, just to get a fresher, more presentable view.
 
@@ -577,7 +644,7 @@ md_map_income
 
 ```
 
-Noting our interest in the eastern part of Maryland, we notice a cluster of golf courses in Ocean City, Maryland, which is also shown to be on the lower end of the income quantiles. There's also a cluster of sports venues not far from Salisbury. But south of Cambridge, right by the Chesapeake, there's almost nothing.
+Noting our interest in the eastern part of Maryland, we notice a cluster of golf courses in Ocean City, Maryland, which is also shown to be on the lower end of the income quantiles. There's also a cluster of sports venues not far from Salisbury, which is also on the lower end of the income quantiles. But south of Cambridge, right by the Chesapeake, there's almost nothing.
 
 **Diving Deeper Into Income Levels**
 
@@ -599,7 +666,7 @@ md_income_tract_golf_bins <- golf_st %>%
 
 golf_income <-ggplot(data=md_income_tract_golf_bins, aes(x=new_bin, y=count))+
   geom_bar(stat="identity",fill="#5a9e4b")+
-  labs(title="Golf courses are concentrated in wealthy Maryland areas", caption="By Rina Torchinsky")  + theme_minimal() + 
+  labs(title="Golf courses are concentrated in wealthy Maryland areas", caption="Source: Maryland iMap Data Catalog, U.S. Census | By Rina Torchinsky", x="Income Buckets", y="Sports Venues")  + theme_minimal() + 
   theme(
     plot.title = element_text(size = 16, face = "bold"),
     axis.title = element_text(size = 8), 
@@ -615,6 +682,8 @@ This isn't a wild surprise. There are more golf courses in wealthier Census trac
 
 ```{r}
 
+bball_st <- st_transform(bball, 4269)
+
 md_income_tract_bball_bins <- bball_st %>%
   st_join(md_income_tract_binned)%>%
   group_by(new_bin)%>%
@@ -622,9 +691,9 @@ md_income_tract_bball_bins <- bball_st %>%
 
 bball_income <-ggplot(data=md_income_tract_bball_bins, aes(x=new_bin, y=count))+
   geom_bar(stat="identity",fill="orange")+
-  labs(title="Basketball venues are in both high and low income areas", caption="By Rina Torchinsky")  + theme_minimal() + 
+  labs(title="Basketball venues are in high and low income parts of Maryland", caption="Source: Maryland iMap Data Catalog, U.S. Census | By Rina Torchinsky", x="Income Buckets", y="Sports Venus")  + theme_minimal() + 
   theme(
-    plot.title = element_text(size = 16, face = "bold"),
+    plot.title = element_text(size = 12, face = "bold"),
     axis.title = element_text(size = 8), 
     plot.subtitle = element_text(size=10), 
     panel.grid.minor = element_blank()
@@ -635,7 +704,7 @@ bball_income
 
 ```
 
-This is interesting. Basketball exists in a lot of lower income areas, but also in a lot of very high income areas.
+This is interesting. Basketball exists in a lot of lower income areas, but also in a lot of very high income areas. This follows a much different trend than golf.
 
 ```{r}
 soccer_st <- st_transform(soccer, 4269)
@@ -647,15 +716,19 @@ md_income_tract_soccer_bins <- soccer_st %>%
 
 soccer_income <-ggplot(data=md_income_tract_soccer_bins, aes(x=new_bin, y=count))+
   geom_bar(stat="identity",fill="purple")+
-  labs(title="Soccer venues split between high and low income Maryland areas", caption="By Rina Torchinsky")  + theme_minimal() + 
+  labs(title="Soccer spots are split between high and low income Maryland areas", x="Income Buckets", y="Sports Venues", caption="Source: Maryland iMap Data Catalog, U.S. Census | By Rina Torchinsky")  + theme_minimal() + 
   theme(
-    plot.title = element_text(size = 14, face = "bold"),
+    plot.title = element_text(size = 13, face = "bold"),
     axis.title = element_text(size = 8), 
     plot.subtitle = element_text(size=10), 
     panel.grid.minor = element_blank()
     )
 soccer_income
+
+
 ```
+
+Although soccer venues are showing up in lower-income areas, the higher-income areas are packed. The lack of soccer venues in the middle of the income range is also notable, and seems to somewhat echo what we say with basketball.
 
 ```{r}
 swimming_st <- st_transform(swimming, 4269)
@@ -666,7 +739,21 @@ md_income_tract_swim_bins <- swimming_st %>%
   summarize(count = n())
 
 md_income_tract_swim_bins
+
+
+swim_income <-ggplot(data=md_income_tract_swim_bins, aes(x=new_bin, y=count))+
+  geom_bar(stat="identity",fill="darkblue")+
+  labs(title="Swimming pools cover high and low income Maryland areas", x="Income Buckets", y="Sports Venues", caption="Source: Maryland iMap Data Catalog, U.S. Census | By Rina Torchinsky")  + theme_minimal() + 
+  theme(
+    plot.title = element_text(size = 13.5, face = "bold"),
+    axis.title = element_text(size = 8), 
+    plot.subtitle = element_text(size=10), 
+    panel.grid.minor = element_blank()
+    )
+swim_income
 ```
+
+The lowest income bucket has the highest number of swimming venues, but when we begin to take a more holistic view, it's easy to see that the pools are filling the high two income buckets, in general.
 
 **Pulling Sports Together**
 
@@ -675,6 +762,23 @@ Let's begin to pull in a collection of sports.
 ```{r}
 
 combo_st <- st_transform(sports_combo, 4269)
+
+combo_bins <- combo_st %>%
+  st_join(md_income_tract_binned)%>%
+  group_by(new_bin)%>%
+  summarize(count = n())
+
+combo_income <-ggplot(data=combo_bins, aes(x=new_bin, y=count))+
+  geom_bar(stat="identity",fill="lightblue")+
+labs(title="Higher income Maryland areas are packed with sports venues", subtitle="Lower income areas do have sports venues, but top income areas have much more.", x="Income Buckets", y="Sports Venues", caption="Source: Maryland iMap Data Catalog, U.S. Census | By Rina Torchinsky")  + theme_minimal() + 
+  theme(
+    plot.title = element_text(size = 13.5, face = "bold"),
+    axis.title = element_text(size = 8), 
+    plot.subtitle = element_text(size=10), 
+    panel.grid.minor = element_blank()
+    )
+combo_income
+
 
 ```
 
@@ -707,9 +811,9 @@ df_w <- left_join(md_income_tract, sportsless_tracts)%>%
   replace(is.na(.), 1)%>%
   filter(col == 1)
 
-pal30 <- colorNumeric(palette = "red", domain = df$col)
+pal30 <- colorNumeric(palette = "yellow", domain = df$col)
 
-pal20 <- colorNumeric(palette = "yellow", domain = df$col)
+pal20 <- colorNumeric(palette = "red", domain = df$col)
 
 df <- st_as_sf(df)
 
@@ -742,6 +846,16 @@ leaflet()%>%
   
 ```
 
-Nearly all of Dorchester County does not have any sports venues. Parts of Worcester County also lack sports venues. Caroline County also lacks sports venues. Much of Allegany County also lacks sports venues.
+There are a couple of ways that I interacted with this map to identify areas that lack sports venues. I toggled to just "Without Sports" to identify areas that lack sports venues. Then, I switched off that layer and turned on the income layer, so I could determine if areas without sports were also lower income.
 
-Parts of Prince George's County that hug Washington, D.C., including Chillum and Mount Rainier are lower income and lack sports venues. Upper parts of Montgomery County, including Poolesville and Barnesville, are wealthier and also have sports venues.
+Nearly all of Dorchester County does not have any sports venues. The entire county is also predominantly lower income. Caroline County also lacks sports venues outside of the area around Denton. If you scroll to the county, you can see that there are some sports venues in Caroline County around Denton, but once you approach Federalsburg, which is lower-income, there are no longer any venues in the area. Greensboro, which is in the northern part of Caroline County is lower income and has no sports venues.
+
+Much of Allegany County also lacks sports venues, as does the western portion of Washington County, which is a lower-income region. The area south of Oakland, which is in some of the lowest income quantiles, has no sports venues.
+
+Parts of Prince George's County that hug Washington, D.C., including Chillum and Mount Rainier are lower income and lack sports venues. On the contrary, upper parts of Montgomery County, including Poolesville and Barnesville, are wealthier and also have sports venues. In addition, the area north of Columbia in Howard County is both higher income and has sports venues.\
+\
+**Conclusion and Next Steps**
+
+Sports recreational deserts exist in Maryland, and they do exist in the lower income areas identified above. The analysis shows that wealthier areas have sports venues. Next, it would be interesting to explore change over time, as well as what sort of decision making goes into the construction of new sports venues. Cleaner, newer, more expansive data, would also be important to making stronger points about these sports recreational deserts.
+
+It would also be interesting to explore the next level of "why it matters," by exploring high school sports participation or similar data. I would be interested to identify the impact of sports recreational deserts -- the athletes they keep away and the athletes who succeeds despite them.
