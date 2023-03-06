@@ -54,7 +54,7 @@ The site describes the data, as follows:
 
 "These venues offer opportunities to participate in free and fee-based - organized and pick-up - indoor and outdoor sports and physical fitness related activities in the area of Basketball."
 
-That leaves many questions, and I'm not sure how accurate this is. Throughout this presentation, bear in mind that this dataset might not be complete and it might be out
+That leaves many questions, and I'm not sure how accurate this is. Throughout this presentation, bear in mind that this dataset might not be complete and it might be out of date.
 
 ```{r}
 bball <- st_read("basketball/SOCI_Basketball_MDSports.shp")
